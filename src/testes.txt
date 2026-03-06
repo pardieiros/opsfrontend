@@ -1,0 +1,129 @@
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setAlertConfig(null);
+    // Extrai cor e valor de gramagem selecionados
+    const [corSelecionada, valorGram] = selectedGramagem.split('-');
+    const gramagemNumber = valorGram ? parseFloat(valorGram) : undefined;
+    const payload = {
+      cliente: selectedClient?.id,
+      tipo_saco: selectedTipoSaco,
+      grupo: selectedGrupo,
+      tamanho: selectedTamanho,
+      print_type: selectedPrintType,
+      cor_gramagem_cor: corSelecionada,
+      cor_gramagem_valor: gramagemNumber,
+      nome_trabalho: nomeTrabalho,
+      numero_faces: numeroFaces,
+      email_encomenda: emailEncomenda,
+      quantidade,
+      obs: obsOP,
+      data_saida: dataSaida,
+      cordao_asa_torcida: selectedTipoSaco === /* asa torcida ID */ 5 ? {
+        cor: cordaoCor === "outro" ? cordaoCorCustom : cordaoCor,
+        material: cordaoMaterial
+      } : undefined,
+      // Cordão/Fita para tipos 3 e 4
+      cordao_fita: (selectedTipoSaco === 3 || selectedTipoSaco === 4) ? {
+        cor: cordaoFitaColor === 'outro' ? cordaoFitaColorCustom : cordaoFitaColor,
+        tipo: cordaoFitaType,
+        espessura: cordaoFitaThickness,
+        comprimento: cordaoFitaLength
+      } : undefined,
+      // Saco plástico para tipo 2
+      tipo_saco_plastico: selectedTipoSaco === 2 ? selectedPlasticBagType : undefined,
+      cor_asa_flexivel: selectedTipoSaco === 2 && selectedPlasticBagType === 'asa flexivel' ?
+        (asaFlexColor === 'outro' ? asaFlexColorCustom : asaFlexColor)
+        : undefined,
+      maquete_attached: isMaqueteAttached,
+      maquete_file_name: maqueteFile?.name,
+      attached_email_id: emailAttached ? selectedEmail : undefined,
+    };
+    try {
+      const token = localStorage.getItem("accessToken") || "";
+      let result;
+      if (maqueteFile) {
+        const form = new FormData();
+        form.append('cliente', String(payload.cliente));
+        form.append('tipo_saco', String(payload.tipo_saco));
+        form.append('grupo', String(payload.grupo));
+        form.append('tamanho', String(payload.tamanho));
+        form.append('numero_faces', String(payload.numero_faces));
+        form.append('print_type', String(payload.print_type));
+        form.append('cor_gramagem_cor', String(payload.cor_gramagem_cor));
+        if (payload.cor_gramagem_valor != null) {
+          form.append('cor_gramagem_valor', String(payload.cor_gramagem_valor));
+        }
+        form.append('nome_trabalho', payload.nome_trabalho);
+        form.append('quantidade', String(payload.quantidade));
+        form.append('obs', payload.obs);
+        form.append('email_encomenda', payload.email_encomenda);
+        form.append('data_saida', payload.data_saida);
+        if (payload.cordao_asa_torcida) {
+          form.append('cordao_asa_torcida', JSON.stringify(payload.cordao_asa_torcida));
+        }
+        // New fields for cordao_fita and saco plastico
+        if (payload.cordao_fita) {
+          form.append('cordao_fita', JSON.stringify(payload.cordao_fita));
+        }
+        if (payload.tipo_saco_plastico) {
+          form.append('tipo_saco_plastico', payload.tipo_saco_plastico);
+        }
+        if (payload.cor_asa_flexivel) {
+          form.append('cor_asa_flexivel', payload.cor_asa_flexivel);
+        }
+        if (payload.attached_email_id) {
+          form.append('attached_email_id', String(payload.attached_email_id));
+        }
+        form.append('maquete_attached', String(payload.maquete_attached));
+        form.append('maquete_file_name', payload.maquete_file_name || '');
+        form.append('maquete', maqueteFile);
+        // also append cropped image
+        if (croppedImageBlob) form.append("maquete_crop", croppedImageBlob, "crop.jpg");
+        // Append selected maquete colors to payload
+        maqueteColors.forEach(color => form.append('maquete_colors[]', color));
+        result = await createOrdemProducao(form, token);
+      } else {
+        // Add new fields for cordao_fita, tipo_saco_plastico, cor_asa_flexivel to payload
+        result = await createOrdemProducao({
+          ...payload,
+          cordao_fita: payload.cordao_fita,
+          tipo_saco_plastico: payload.tipo_saco_plastico,
+          cor_asa_flexivel: payload.cor_asa_flexivel,
+          // ensure croppedImageBlob is sent
+          maquete_crop: croppedImageBlob ? new File([croppedImageBlob], "crop.jpg", { type: croppedImageBlob.type }) : undefined,
+        }, token);
+      }
+      setAlertConfig({
+        variant: "success",
+        title: "Sucesso",
+        message: "Ordem criada com sucesso!",
+      });
+      // Reset form fields
+      setSelectedClient(null);
+      setSelectedTipoSaco(null);
+      setSelectedGrupo("");
+      setSelectedTamanho(null);
+      setSelectedGramagem("");
+      setSelectedPrintType(null);
+      setNomeTrabalho("");
+      setEmailEncomenda("");
+      setQuantidade(1);
+      setObsOP("");
+      setCordaoCor("");
+      setCordaoCorCustom("");
+      setEmailAttached(false);
+      // Reset dataSaida to default (+14 days)
+      const d = new Date();
+      d.setDate(d.getDate() + 14);
+      setDataSaida(d.toISOString().split("T")[0]);
+    } catch (error) {
+      setAlertConfig({
+        variant: "error",
+        title: "Erro",
+        message: "Falha ao criar ordem.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }

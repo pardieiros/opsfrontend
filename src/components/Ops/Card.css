@@ -1,0 +1,59 @@
+/* Estilos específicos para o componente Card */
+.card-op {
+  transition: all 0.3s ease;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.card-op:hover {
+  transform: scale(1.05) translateZ(0) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+  border-color: #3b82f6 !important;
+  background-color: #eff6ff !important;
+}
+
+.dark .card-op:hover {
+  background-color: #374151 !important;
+  border-color: #2563eb !important;
+}
+
+.card-op .group:hover .group-hover\:opacity-100 {
+  opacity: 1 !important;
+}
+
+.card-op .group:hover .group-hover\:text-blue-700 {
+  color: #1d4ed8 !important;
+}
+
+.dark .card-op .group:hover .group-hover\:text-blue-300 {
+  color: #93c5fd !important;
+}
+
+.card-op .group:hover .group-hover\:text-gray-700 {
+  color: #374151 !important;
+}
+
+.dark .card-op .group:hover .group-hover\:text-gray-300 {
+  color: #d1d5db !important;
+}
+
+/* Garantir que o indicador de duplo clique apareça */
+.card-op .double-click-indicator {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.card-op:hover .double-click-indicator {
+  opacity: 1 !important;
+}
+
+/* Garantir que o ícone de edição apareça no status */
+.card-op .status-edit-icon {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.card-op .status-group:hover .status-edit-icon {
+  opacity: 1 !important;
+} 
