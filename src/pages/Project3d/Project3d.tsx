@@ -61,7 +61,7 @@ interface Project3DImageAsset {
 interface Project3DDesignConfig {
   id?: number;
   model: string;
-  tamanho_id: number;
+  tamanho_id?: number;
   cor_id?: number;
   print_small: PrintConfig;
   print_large: PrintConfig;
@@ -313,7 +313,7 @@ const Project3d: React.FC = () => {
   }, [filteredTamanhos, selectedTamanho]);
 
   useEffect(() => {
-    if (!selectedModel || !selectedTamanho || !selectedCor) {
+    if (!selectedModel || !selectedCor) {
       setSmallConfig({ ...DEFAULT_PRINT_SMALL });
       setLargeConfig({ ...DEFAULT_PRINT_LARGE });
       setImageAsset(null);
@@ -328,7 +328,6 @@ const Project3d: React.FC = () => {
         const data = await getProject3DDesignConfig(
           {
             model: selectedModel,
-            tamanho_id: Number(selectedTamanho),
             cor_id: Number(selectedCor),
           },
           token
@@ -365,7 +364,7 @@ const Project3d: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedModel, selectedTamanho, selectedCor]);
+  }, [selectedModel, selectedCor]);
 
   useEffect(() => {
     if (!editorMode) return;
@@ -469,8 +468,8 @@ const Project3d: React.FC = () => {
   };
 
   const handleSaveOverall = async () => {
-    if (!selectedModel || !selectedTamanho || !selectedCor) {
-      setError("Seleciona modelo, tamanho e cor antes de guardar overall.");
+    if (!selectedModel || !selectedCor) {
+      setError("Seleciona modelo e cor antes de guardar overall.");
       return;
     }
 
@@ -484,17 +483,17 @@ const Project3d: React.FC = () => {
       setLargeConfig(effectiveLarge);
 
       const token = localStorage.getItem("accessToken") || "";
-      await saveProject3DDesignConfig(
-        {
-          model: selectedModel,
-          tamanho_id: Number(selectedTamanho),
-          cor_id: Number(selectedCor),
-          image_asset_id: imageAsset?.id || null,
-          print_small: effectiveSmall,
-          print_large: effectiveLarge,
-        },
-        token
-      );
+      const payload: any = {
+        model: selectedModel,
+        cor_id: Number(selectedCor),
+        image_asset_id: imageAsset?.id || null,
+        print_small: effectiveSmall,
+        print_large: effectiveLarge,
+      };
+      if (selectedTamanho) {
+        payload.tamanho_id = Number(selectedTamanho);
+      }
+      await saveProject3DDesignConfig(payload, token);
       setStatusMessage("Configuração overall guardada com sucesso.");
     } catch (err: any) {
       setError(err?.message || "Falha ao guardar configuração overall.");
