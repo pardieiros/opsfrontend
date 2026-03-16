@@ -1922,6 +1922,201 @@ export async function fetchClients() {
   return response.json();
 }
 
+export async function fetchStockFamilies() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/family/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar famílias de stock");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data?.results || data?.data || [];
+}
+
+export async function fetchFamilyStockDashboard(familyId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/family/${familyId}/stocks/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar o dashboard de stock");
+  }
+  return response.json();
+}
+
+export async function fetchStockMerchandises() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/merchandise/by-family/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar merchandises");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data?.results || data?.data || [];
+}
+
+export async function createStockFamily(payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/family/create/`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        nome: payload.name,
+        descricao: payload.description || "",
+        product_type: payload.product_type || "none",
+      }),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao criar família");
+  }
+  return response.json();
+}
+
+export async function updateStockFamily(familyId, payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/family/${familyId}/update/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao atualizar família");
+  }
+  return response.json();
+}
+
+export async function createStockMerchandise(payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/merchandise/create/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao criar merchandise");
+  }
+  return response.json();
+}
+
+export async function assignMerchandisesToFamily(familyId, merchandiseIds) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/integrate-family/`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        family_id: familyId,
+        merchandise_ids: merchandiseIds,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao atribuir merchandise à família");
+  }
+  return response.json();
+}
+
+export async function fetchOpsProducts() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/op/tipo-sacos/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar produtos das OPs");
+  }
+  return response.json();
+}
+
+export async function fetchOpsSizes() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/op/tamanhos/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar tamanhos das OPs");
+  }
+  return response.json();
+}
+
+export async function updateOpsProductStockFamily(productId, familyId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/op/tipo-sacos/${productId}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        stock_family: familyId || null,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao ligar família ao produto");
+  }
+  return response.json();
+}
+
+export async function updateOpsSizeStockMerchandise(sizeId, merchandiseId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/op/tamanhos/${sizeId}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        stock_merchandise: merchandiseId || null,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao ligar merchandise ao tamanho");
+  }
+  return response.json();
+}
+
+export async function createStockEntry(payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/merchandise/dar-entrada/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao adicionar entrada de stock");
+  }
+  return response.json();
+}
+
+export async function sendStockOrderEmail(payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/stocks/send-order-email/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao enviar email de encomenda");
+  }
+  return response.json();
+}
+
 /**
  * Busca detalhes de um cliente específico.
  * @param {number} clientId - ID do cliente
@@ -2360,4 +2555,136 @@ export async function getGramagensByTamanhoCor(tamanhoId, corId, token) {
   const data = await response.json();
   console.log('✅ Dados recebidos:', data);
   return data;
+}
+
+async function faturacaoDashboardRequest(path, { method = "GET", password = "", body } = {}) {
+  const token = localStorage.getItem("accessToken") || "";
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (password) {
+    headers["X-Faturacao-Password"] = password;
+  }
+  if (!(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const response = await fetchWithAuth(`${API_BASE}/faturacao-dashboard/${path}`, {
+    method,
+    headers,
+    body: body == null ? undefined : body instanceof FormData ? body : JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let message = "Erro no dashboard de faturação";
+    try {
+      const errorData = await response.json();
+      message = errorData.detail || errorData.error || message;
+    } catch (_error) {
+      const errText = await response.text();
+      message = errText || message;
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export async function authenticateFaturacaoDashboard(password) {
+  return faturacaoDashboardRequest("auth/", {
+    method: "POST",
+    password,
+    body: { password },
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForFaturacaoTask(taskId, password, maxAttempts = 120) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const data = await faturacaoDashboardRequest(`tasks/${taskId}/`, { password });
+    if (data.status === "SUCCESS") {
+      return data.result;
+    }
+    if (data.status === "FAILURE" || data.status === "REVOKED") {
+      throw new Error(data.error || "Falha ao processar o relatório de faturação.");
+    }
+    await sleep(1500);
+  }
+  throw new Error("O processamento do relatório demorou demasiado tempo.");
+}
+
+export async function getFaturacaoDashboardFields(password) {
+  return faturacaoDashboardRequest("fields/", { password });
+}
+
+export async function getFaturacaoDashboardSettings(password) {
+  return faturacaoDashboardRequest("settings/", { password });
+}
+
+export async function getFaturacaoDashboardOverview(params, password) {
+  const query = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (Array.isArray(value) && value.length) {
+      query.set(key, value.join(","));
+      return;
+    }
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+  const suffix = query.toString() ? `overview/?${query.toString()}` : "overview/";
+  return faturacaoDashboardRequest(suffix, { password });
+}
+
+export async function runFaturacaoDashboardQuery(payload, password) {
+  return faturacaoDashboardRequest("query/", {
+    method: "POST",
+    password,
+    body: payload,
+  });
+}
+
+export async function getFaturacaoDashboardCharts(params, password) {
+  const task = await faturacaoDashboardRequest("charts/", {
+    method: "POST",
+    password,
+    body: params || {},
+  });
+  return waitForFaturacaoTask(task.task_id, password);
+}
+
+export async function getFaturacaoPrinttypegroupComparison(params, password) {
+  const task = await faturacaoDashboardRequest("compare-printtypegroup-costs/", {
+    method: "POST",
+    password,
+    body: params || {},
+  });
+  return waitForFaturacaoTask(task.task_id, password);
+}
+
+export async function getFaturacaoYearlyAverages(password) {
+  const task = await faturacaoDashboardRequest("yearly-averages/", {
+    method: "POST",
+    password,
+    body: {},
+  });
+  return waitForFaturacaoTask(task.task_id, password);
+}
+
+export async function uploadFaturacaoDashboardExcel(file, password) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const task = await faturacaoDashboardRequest("upload/", {
+    method: "POST",
+    password,
+    body: formData,
+  });
+
+  await waitForFaturacaoTask(task.task_id, password, 300);
+  return getFaturacaoDashboardSettings(password);
 }

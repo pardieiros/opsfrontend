@@ -69,6 +69,11 @@ const navItems: NavItem[] = [
     path: "/maquetes"
   },
   {
+    icon: <BoxCubeIcon />,
+    name: "Stocks",
+    path: "/stocks"
+  },
+  {
     icon: <PlugInIcon />,
     name: "Serigrafia",
     subItems: [
@@ -378,10 +383,11 @@ const AppSidebar: React.FC = () => {
           {isExpanded || isHovered ? (
             <div className="flex items-center gap-2">
               <img
-                src="/images/logo/logos.svg"
+                src="/icon-512.png"
                 alt="Logo"
                 width={60}
                 height={60}
+                className="object-contain"
               />
               <span className="text-black dark:text-white text-lg font-bold">
                 Plasticos Dão
@@ -389,10 +395,11 @@ const AppSidebar: React.FC = () => {
             </div>
           ) : (
             <img
-              src="/images/logo/logos.svg"
+              src="/icon-512.png"
               alt="Logo"
               width={32}
               height={32}
+              className="object-contain"
             />
           )}
         </Link>

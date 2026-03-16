@@ -37,6 +37,7 @@ import TamanhosConsultar from "./pages/Tamanhos/Consultar";
 import TamanhosEditar from "./pages/Tamanhos/Editar";
 import Project3d from "./pages/Project3d/Project3d";
 import GestaoImpressao from "./pages/Impressao/Gestao";
+import StocksDashboard from "./pages/Stocks/Dashboard";
 import AppLayout from "./layout/AppLayout";
 import Prepfich from "./pages/Digital/Prepfich";
 import Home from "./pages/Dashboard/Home";
@@ -49,6 +50,7 @@ import ClientDetail from "./pages/Clients/ClientDetail";
 import ClientEdit from "./pages/Clients/ClientEdit";
 import ClientNew from "./pages/Clients/ClientNew";
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
+import FaturacaoDashboardPage from "./pages/Faturacao/Dashboard";
 import { ServiceWorkerUpdate } from "./components/common/ServiceWorkerUpdate";
 
 
@@ -155,6 +157,7 @@ export default function App() {
           <Route path="/tamanhos/consultar" element={<TamanhosConsultar />} />
           <Route path="/tamanhos/editar/:id" element={<TamanhosEditar />} />
           <Route path="/project3d" element={<Project3d />} />
+          <Route path="/stocks" element={<StocksDashboard />} />
 
           {/* Impressão Pages */}
           <Route path="/impressao/gestao" element={<GestaoImpressao />} />
@@ -187,6 +190,7 @@ export default function App() {
 
           {/* Notifications Page */}
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/faturacao/dashboard" element={<FaturacaoDashboardPage />} />
         </Route>
 
         {/* Public approval page */}
