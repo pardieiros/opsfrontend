@@ -20,6 +20,7 @@ type FaturacaoComparisonSectionProps = {
   hasCompared: boolean;
   loadingComparison: boolean;
   onCompare: () => void;
+  onOpenDetails: (period: "x" | "y", label: string) => void;
   onComparisonDateFromBChange: (value: string) => void;
   onComparisonDateFromChange: (value: string) => void;
   onComparisonDateToBChange: (value: string) => void;
@@ -38,6 +39,7 @@ export default function FaturacaoComparisonSection({
   hasCompared,
   loadingComparison,
   onCompare,
+  onOpenDetails,
   onComparisonDateFromBChange,
   onComparisonDateFromChange,
   onComparisonDateToBChange,
@@ -208,10 +210,28 @@ export default function FaturacaoComparisonSection({
                         {item.label}
                       </div>
                       <div className="mt-1 text-gray-600 dark:text-gray-300">
+                        Planos: {formatNumber(item.period_x_planos)}
+                      </div>
+                      <div className="mt-1 text-gray-600 dark:text-gray-300">
                         Qnty: {formatNumber(item.period_x_quantity)}
                       </div>
                       <div className="text-gray-600 dark:text-gray-300">
                         Printcost: {formatCurrency(item.period_x_printcost)}
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-300">
+                        Stockcost: {formatCurrency(item.period_x_stockcost)}
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-300">
+                        Handling: {formatCurrency(item.period_x_handlingcost)}
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onOpenDetails("x", item.label)}
+                        >
+                          Mais detalhes de sacos
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -233,10 +253,28 @@ export default function FaturacaoComparisonSection({
                         {item.label}
                       </div>
                       <div className="mt-1 text-gray-600 dark:text-gray-300">
+                        Planos: {formatNumber(item.period_y_planos)}
+                      </div>
+                      <div className="mt-1 text-gray-600 dark:text-gray-300">
                         Qnty: {formatNumber(item.period_y_quantity)}
                       </div>
                       <div className="text-gray-600 dark:text-gray-300">
                         Printcost: {formatCurrency(item.period_y_printcost)}
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-300">
+                        Stockcost: {formatCurrency(item.period_y_stockcost)}
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-300">
+                        Handling: {formatCurrency(item.period_y_handlingcost)}
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onOpenDetails("y", item.label)}
+                        >
+                          Mais detalhes de sacos
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -249,25 +287,49 @@ export default function FaturacaoComparisonSection({
                 <span className="block text-gray-500 dark:text-gray-400">
                   Período X
                 </span>
-                <strong className="text-gray-900 dark:text-white">
-                  {formatNumber(comparisonData.summary.period_x_quantity)} sacos
-                </strong>
-                <span className="ml-2 text-gray-500 dark:text-gray-400">
-                  | Printcost{" "}
-                  {formatCurrency(comparisonData.summary.period_x_printcost)}
-                </span>
+                <div className="mt-1 space-y-1">
+                  <div>
+                    <strong className="text-gray-900 dark:text-white">
+                      {formatNumber(comparisonData.summary.period_x_planos)} planos
+                    </strong>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-200">
+                    {formatNumber(comparisonData.summary.period_x_quantity)} sacos
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Printcost {formatCurrency(comparisonData.summary.period_x_printcost)}
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Stockcost {formatCurrency(comparisonData.summary.period_x_stockcost)}
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Handling {formatCurrency(comparisonData.summary.period_x_handlingcost)}
+                  </div>
+                </div>
               </div>
               <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/5">
                 <span className="block text-gray-500 dark:text-gray-400">
                   Período Y
                 </span>
-                <strong className="text-gray-900 dark:text-white">
-                  {formatNumber(comparisonData.summary.period_y_quantity)} sacos
-                </strong>
-                <span className="ml-2 text-gray-500 dark:text-gray-400">
-                  | Printcost{" "}
-                  {formatCurrency(comparisonData.summary.period_y_printcost)}
-                </span>
+                <div className="mt-1 space-y-1">
+                  <div>
+                    <strong className="text-gray-900 dark:text-white">
+                      {formatNumber(comparisonData.summary.period_y_planos)} planos
+                    </strong>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-200">
+                    {formatNumber(comparisonData.summary.period_y_quantity)} sacos
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Printcost {formatCurrency(comparisonData.summary.period_y_printcost)}
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Stockcost {formatCurrency(comparisonData.summary.period_y_stockcost)}
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Handling {formatCurrency(comparisonData.summary.period_y_handlingcost)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

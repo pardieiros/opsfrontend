@@ -45,6 +45,7 @@ type FaturacaoDashboardContentProps = {
   onDateFromChange: (value: string) => void;
   onDateToChange: (value: string) => void;
   onSearch: () => void;
+  onOpenDetails: (period: "x" | "y", label: string) => void;
 };
 
 export default function FaturacaoDashboardContent({
@@ -80,6 +81,7 @@ export default function FaturacaoDashboardContent({
   onDateFromChange,
   onDateToChange,
   onSearch,
+  onOpenDetails,
 }: FaturacaoDashboardContentProps) {
   return (
     <>
@@ -147,6 +149,7 @@ export default function FaturacaoDashboardContent({
           hasCompared={hasCompared}
           loadingComparison={loadingComparison}
           onCompare={onCompare}
+          onOpenDetails={onOpenDetails}
           onComparisonDateFromBChange={onComparisonDateFromBChange}
           onComparisonDateFromChange={onComparisonDateFromChange}
           onComparisonDateToBChange={onComparisonDateToBChange}

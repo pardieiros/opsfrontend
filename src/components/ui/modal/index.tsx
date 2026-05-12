@@ -50,11 +50,11 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   const contentClasses = isFullscreen
-    ? "w-full h-full"
-    : "relative w-full rounded-3xl bg-white  dark:bg-gray-900";
+    ? "h-full w-full overflow-hidden"
+    : "relative w-full max-h-[calc(100vh-2rem)] overflow-hidden rounded-3xl bg-white shadow-xl dark:bg-gray-900";
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+    <div className="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-4 modal">
       {!isFullscreen && (
         <div
           className="fixed inset-0 h-full w-full bg-black/20"
@@ -65,7 +65,7 @@ export const Modal: React.FC<ModalProps> = ({
         ref={modalRef}
         className={`${contentClasses}  ${className}`}
         onClick={(e) => e.stopPropagation()}
-      >
+        >
         {showCloseButton && (
           <button
             onClick={onClose}
@@ -87,7 +87,15 @@ export const Modal: React.FC<ModalProps> = ({
             </svg>
           </button>
         )}
-        <div>{children}</div>
+        <div
+          className={
+            isFullscreen
+              ? "h-full overflow-y-auto overscroll-contain"
+              : "max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain"
+          }
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

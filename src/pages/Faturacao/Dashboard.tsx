@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Chart from "react-apexcharts";
 import type { ApexOptions } from "apexcharts";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -6,10 +7,13 @@ import {
   authenticateFaturacaoDashboard,
   getFaturacaoDashboardCharts,
   getFaturacaoPrinttypegroupComparison,
+  getFaturacaoPrinttypegroupDetails,
   getFaturacaoDashboardSettings,
   getFaturacaoYearlyAverages,
   uploadFaturacaoDashboardExcel,
 } from "../../serviceapi/api";
+import { Modal } from "../../components/ui/modal";
+import Spinner from "../../components/ui/loaders/Spinner";
 import FaturacaoAccessCard from "./components/FaturacaoAccessCard";
 import FaturacaoDashboardContent from "./components/FaturacaoDashboardContent";
 import FaturacaoDashboardTabs from "./components/FaturacaoDashboardTabs";
@@ -21,6 +25,7 @@ import {
   FATURACAO_DASHBOARD_TABS,
   PASSWORD_KEY,
   escapeHtml,
+  formatCurrency,
   formatNumber,
   readStoredUser,
   type AuthResponse,
@@ -28,6 +33,7 @@ import {
   type FaturacaoDashboardTabId,
   type FaturacaoSettingsResponse,
   type PrinttypegroupComparisonResponse,
+  type PrinttypegroupDetailsResponse,
   type YearlyAveragesResponse,
 } from "./dashboardShared";
 
@@ -62,6 +68,12 @@ export default function FaturacaoDashboardPage() {
   const [comparisonError, setComparisonError] = useState("");
   const [loadingComparison, setLoadingComparison] = useState(false);
   const [hasCompared, setHasCompared] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [detailsData, setDetailsData] = useState<PrinttypegroupDetailsResponse | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+  const [detailsSelectedSize, setDetailsSelectedSize] = useState<string | null>(null);
+  const [detailsTitle, setDetailsTitle] = useState("");
 
   const [yearlyAveragesData, setYearlyAveragesData] =
     useState<YearlyAveragesResponse | null>(null);
@@ -218,6 +230,53 @@ export default function FaturacaoDashboardPage() {
     } finally {
       setLoadingComparison(false);
     }
+  };
+
+  const handleOpenPrinttypeDetails = async (period: "x" | "y", label: string) => {
+    const dateFrom = period === "x" ? comparisonDateFrom : comparisonDateFromB;
+    const dateTo = period === "x" ? comparisonDateTo : comparisonDateToB;
+
+    if (!accessPassword) {
+      setDetailsError("Autentica primeiro o acesso à faturação.");
+      setDetailsModalOpen(true);
+      return;
+    }
+    if (!dateFrom || !dateTo) {
+      setDetailsError("Preenche o intervalo de datas do período selecionado.");
+      setDetailsModalOpen(true);
+      return;
+    }
+
+    setDetailsModalOpen(true);
+    setDetailsError("");
+    setDetailsData(null);
+    setDetailsSelectedSize(null);
+    setLoadingDetails(true);
+    setDetailsTitle(`${label} — ${dateFrom} → ${dateTo}`);
+
+    try {
+      const response: PrinttypegroupDetailsResponse =
+        await getFaturacaoPrinttypegroupDetails(
+          { date_from: dateFrom, date_to: dateTo, printtypegroup: label },
+          accessPassword
+        );
+      setDetailsData(response);
+      if (response.size_chart?.length) {
+        setDetailsSelectedSize(response.size_chart[0].label);
+      }
+    } catch (error: any) {
+      setDetailsError(error?.message || "Falha ao carregar o detalhe.");
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleCloseDetails = () => {
+    setDetailsModalOpen(false);
+    setDetailsError("");
+    setDetailsData(null);
+    setDetailsSelectedSize(null);
+    setDetailsTitle("");
   };
 
   const handleLoadYearlyAverages = async () => {
@@ -586,6 +645,47 @@ export default function FaturacaoDashboardPage() {
     [comparisonPrinttypeSeries]
   );
 
+  const detailsSizeChartOptions: ApexOptions = useMemo(
+    () => ({
+      chart: {
+        type: "bar",
+        fontFamily: "Outfit, sans-serif",
+        toolbar: { show: false },
+        events: {
+          dataPointSelection: (_event, _ctx, config) => {
+            const sizeLabel = detailsData?.size_chart[config.dataPointIndex]?.label;
+            if (sizeLabel) {
+              setDetailsSelectedSize(sizeLabel);
+            }
+          },
+        },
+      },
+      colors: ["#0ea5e9"],
+      plotOptions: {
+        bar: {
+          columnWidth: "48%",
+          borderRadius: 6,
+        },
+      },
+      dataLabels: { enabled: false },
+      xaxis: {
+        categories: detailsData?.size_chart.map((item) => item.label) ?? [],
+        title: { text: "Sizes" },
+      },
+      yaxis: {
+        title: { text: "Sacos" },
+        labels: { formatter: (value) => formatNumber(Number(value)) },
+      },
+      tooltip: {
+        y: {
+          formatter: (value) => `${formatNumber(Number(value))} sacos`,
+        },
+      },
+      noData: { text: "Sem dados para o printtypegroup selecionado." },
+    }),
+    [detailsData]
+  );
+
   if (!isSuperuser) {
     return (
       <div>
@@ -665,6 +765,7 @@ export default function FaturacaoDashboardPage() {
           onComparisonDateToChange={setComparisonDateTo}
           onDateFromChange={setDateFrom}
           onDateToChange={setDateTo}
+          onOpenDetails={handleOpenPrinttypeDetails}
           onSearch={handleSearch}
         />
       ) : activeTab === "print-costs" ? (
@@ -696,6 +797,111 @@ export default function FaturacaoDashboardPage() {
           description={selectedTabMeta?.description || "Tab sem descrição."}
         />
       )}
+
+      <Modal isOpen={detailsModalOpen} onClose={handleCloseDetails}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {detailsTitle || "Detalhe de sacos"}
+          </h3>
+        </div>
+        {loadingDetails && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-200 space-y-3">
+            <div className="flex items-center gap-3">
+              <Spinner />
+              <span>A preencher os dados, aguarda um momento...</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-blue-100 dark:bg-blue-900/40 overflow-hidden">
+              <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-500/80 dark:bg-blue-400/60" />
+            </div>
+          </div>
+        )}
+
+        {detailsError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200">
+            {detailsError}
+          </div>
+        )}
+
+        {detailsData && (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/5">
+                <div className="text-gray-500 dark:text-gray-400">Planos</div>
+                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {formatNumber(detailsData.summary.planos)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/5">
+                <div className="text-gray-500 dark:text-gray-400">Sacos</div>
+                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {formatNumber(detailsData.summary.quantity)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm dark:bg-white/5">
+                <div className="text-gray-500 dark:text-gray-400">Printcost</div>
+                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {formatCurrency(detailsData.summary.printcost)}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Stockcost {formatCurrency(detailsData.summary.stockcost)} | Handling{" "}
+                  {formatCurrency(detailsData.summary.handlingcost)}
+                </div>
+              </div>
+            </div>
+
+            <Chart
+              options={detailsSizeChartOptions}
+              series={[
+                {
+                  name: "Sacos",
+                  data: detailsData.size_chart.map((item) => item.value),
+                },
+              ]}
+              type="bar"
+              height={320}
+            />
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  Papercodes do size {detailsSelectedSize || "—"}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Clica numa barra do gráfico para mudar de size.
+                </div>
+              </div>
+              <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
+                {(detailsSelectedSize
+                  ? detailsData.size_drilldown[detailsSelectedSize] || []
+                  : []
+                ).map((item) => (
+                  <div
+                    key={`${detailsSelectedSize}-${item.label}`}
+                    className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm dark:bg-white/5"
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {item.label} {item.color ? `(${item.color})` : ""}
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-300">
+                      Sacos: {formatNumber(item.quantity)}
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      Printcost {formatCurrency(item.printcost)} | Stockcost{" "}
+                      {formatCurrency(item.stockcost)} | Handling {formatCurrency(item.handlingcost)}
+                      {" "} | Planos {formatNumber(item.planos)}
+                    </div>
+                  </div>
+                ))}
+                {!detailsSelectedSize && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Seleciona um size no gráfico para ver o detalhe por papercode.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

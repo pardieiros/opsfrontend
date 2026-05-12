@@ -5,9 +5,13 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import BarcodeScannerModal from "../components/Imprimir360/BarcodeScannerModal";
+import PrinterSettingsModal from "../components/Imprimir360/PrinterSettingsModal";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
@@ -248,6 +252,66 @@ const AppHeader: React.FC = () => {
           } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              title="Abrir scanner"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M4 7V5C4 4.44772 4.44772 4 5 4H7M17 4H19C19.5523 4 20 4.44772 20 5V7M20 17V19C20 19.5523 19.5523 20 19 20H17M7 20H5C4.44772 20 4 19.5523 4 19V17"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M7 12H17"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M9 9H15V15H9V9Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPrinterSettingsOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              title="Definições das impressoras"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 13.933 10.067 15.5 12 15.5C13.933 15.5 15.5 13.933 15.5 12C15.5 10.067 13.933 8.5 12 8.5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M19.4 15C19.2667 15.3 19.2 15.45 19.2 15.6C19.2 15.75 19.2667 15.9 19.4 16.2L19.51 16.44C19.89 17.27 20.08 17.685 19.9978 18.0291C19.9157 18.3732 19.5832 18.6295 18.9182 19.142L18.7261 19.2901C18.486 19.4752 18.3659 19.5678 18.24 19.6156C18.1141 19.6633 17.9498 19.6656 17.6212 19.6702L17.3054 19.6746C16.9998 19.6789 16.847 19.6811 16.7156 19.7316C16.5842 19.7821 16.4654 19.881 16.2278 20.0788L15.9865 20.2798C15.4273 20.7458 15.1478 20.9788 14.8242 21.0175C14.5006 21.0562 14.1502 20.895 13.4496 20.5726L13.1518 20.4356C12.7995 20.2735 12.6233 20.1924 12.44 20.1924C12.2567 20.1924 12.0805 20.2735 11.7282 20.4356L11.4304 20.5726C10.7298 20.895 10.3794 21.0562 10.0558 21.0175C9.73221 20.9788 9.45272 20.7458 8.89352 20.2798L8.65219 20.0788C8.41461 19.881 8.29582 19.7821 8.16442 19.7316C8.03301 19.6811 7.88021 19.6789 7.57461 19.6746L7.25882 19.6702C6.93018 19.6656 6.76585 19.6633 6.63996 19.6156C6.51408 19.5678 6.39402 19.4752 6.1539 19.2901L5.96183 19.142C5.29678 18.6295 4.96426 18.3732 4.88215 18.0291C4.80003 17.685 4.99002 17.27 5.37 16.44L5.48 16.2C5.61333 15.9 5.68 15.75 5.68 15.6C5.68 15.45 5.61333 15.3 5.48 15L5.37 14.76C4.99002 13.93 4.80003 13.515 4.88215 13.1709C4.96426 12.8268 5.29678 12.5705 5.96183 12.058L6.1539 11.9099C6.39402 11.7248 6.51408 11.6322 6.63996 11.5844C6.76585 11.5367 6.93018 11.5344 7.25882 11.5298L7.57461 11.5254C7.88021 11.5211 8.03301 11.5189 8.16442 11.4684C8.29582 11.4179 8.41461 11.319 8.65219 11.1212L8.89352 10.9202C9.45272 10.4542 9.73221 10.2212 10.0558 10.1825C10.3794 10.1438 10.7298 10.305 11.4304 10.6274L11.7282 10.7644C12.0805 10.9265 12.2567 11.0076 12.44 11.0076C12.6233 11.0076 12.7995 10.9265 13.1518 10.7644L13.4496 10.6274C14.1502 10.305 14.5006 10.1438 14.8242 10.1825C15.1478 10.2212 15.4273 10.4542 15.9865 10.9202L16.2278 11.1212C16.4654 11.319 16.5842 11.4179 16.7156 11.4684C16.847 11.5189 16.9998 11.5211 17.3054 11.5254L17.6212 11.5298C17.9498 11.5344 18.1141 11.5367 18.24 11.5844C18.3659 11.6322 18.486 11.7248 18.7261 11.9099L18.9182 12.058C19.5832 12.5705 19.9157 12.8268 19.9978 13.1709C20.08 13.515 19.89 13.93 19.51 14.76L19.4 15Z"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
@@ -258,6 +322,11 @@ const AppHeader: React.FC = () => {
           <UserDropdown />
         </div>
       </div>
+      <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+      <PrinterSettingsModal
+        isOpen={isPrinterSettingsOpen}
+        onClose={() => setIsPrinterSettingsOpen(false)}
+      />
     </header>
   );
 };

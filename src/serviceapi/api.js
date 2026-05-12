@@ -1948,6 +1948,68 @@ export async function fetchFamilyStockDashboard(familyId) {
   return response.json();
 }
 
+export async function fetchFamilyDynamicFields(familyId, scope) {
+  const search = new URLSearchParams();
+  if (scope) {
+    search.set("scope", scope);
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithAuth(
+    `${API_BASE}/family/${familyId}/dynamic-fields/${suffix}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar campos dinâmicos");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data?.results || data?.data || [];
+}
+
+export async function createFamilyDynamicField(familyId, payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/family/${familyId}/dynamic-fields/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao criar campo dinâmico");
+  }
+  return response.json();
+}
+
+export async function updateFamilyDynamicField(fieldId, payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/dynamic-fields/${fieldId}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao atualizar campo dinâmico");
+  }
+  return response.json();
+}
+
+export async function deleteFamilyDynamicField(fieldId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/dynamic-fields/${fieldId}/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao eliminar campo dinâmico");
+  }
+  return true;
+}
+
 export async function fetchStockMerchandises() {
   const response = await fetchWithAuth(
     `${API_BASE}/merchandise/by-family/`,
@@ -1971,6 +2033,7 @@ export async function createStockFamily(payload) {
         nome: payload.name,
         descricao: payload.description || "",
         product_type: payload.product_type || "none",
+        has_certification: Boolean(payload.has_certification),
       }),
     }
   );
@@ -2007,6 +2070,21 @@ export async function createStockMerchandise(payload) {
   if (!response.ok) {
     const errText = await response.text();
     throw new Error(errText || "Erro ao criar merchandise");
+  }
+  return response.json();
+}
+
+export async function updateStockMerchandise(merchandiseId, payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/merchandise/${merchandiseId}/update/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao atualizar merchandise");
   }
   return response.json();
 }
@@ -2089,7 +2167,7 @@ export async function updateOpsSizeStockMerchandise(sizeId, merchandiseId) {
 
 export async function createStockEntry(payload) {
   const response = await fetchWithAuth(
-    `${API_BASE}/merchandise/dar-entrada/`,
+    `${API_BASE}/stock-entries/`,
     {
       method: "POST",
       body: JSON.stringify(payload),
@@ -2100,6 +2178,43 @@ export async function createStockEntry(payload) {
     throw new Error(errText || "Erro ao adicionar entrada de stock");
   }
   return response.json();
+}
+
+export async function fetchStockEntries(filters = {}) {
+  const search = new URLSearchParams();
+  if (filters.familyId) {
+    search.set("family_id", String(filters.familyId));
+  }
+  if (filters.merchandiseId) {
+    search.set("merchandise_id", String(filters.merchandiseId));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithAuth(
+    `${API_BASE}/stock-entries/${suffix}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar entradas de stock");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data?.results || data?.data || [];
+}
+
+export async function fetchSuppliers() {
+  const response = await fetchWithAuth(
+    `${API_BASE}/suppliers/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar fornecedores");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data?.results || data?.data || [];
 }
 
 export async function sendStockOrderEmail(payload) {
@@ -2659,6 +2774,15 @@ export async function getFaturacaoDashboardCharts(params, password) {
 
 export async function getFaturacaoPrinttypegroupComparison(params, password) {
   const task = await faturacaoDashboardRequest("compare-printtypegroup-costs/", {
+    method: "POST",
+    password,
+    body: params || {},
+  });
+  return waitForFaturacaoTask(task.task_id, password);
+}
+
+export async function getFaturacaoPrinttypegroupDetails(params, password) {
+  const task = await faturacaoDashboardRequest("printtypegroup-details/", {
     method: "POST",
     password,
     body: params || {},

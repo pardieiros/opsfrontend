@@ -90,8 +90,14 @@ export type PrinttypegroupComparisonResponse = {
   summary: {
     period_x_printcost: number;
     period_y_printcost: number;
+    period_x_stockcost: number;
+    period_y_stockcost: number;
+    period_x_handlingcost: number;
+    period_y_handlingcost: number;
     period_x_quantity: number;
     period_y_quantity: number;
+    period_x_planos: number;
+    period_y_planos: number;
     period_x_rows: number;
     period_y_rows: number;
   };
@@ -102,11 +108,55 @@ export type PrinttypegroupComparisonResponse = {
   }[];
   printtypegroup_chart: {
     label: string;
+    period_x_planos: number;
     period_x_quantity: number;
     period_x_printcost: number;
+    period_x_stockcost: number;
+    period_x_handlingcost: number;
+    period_y_planos: number;
     period_y_quantity: number;
     period_y_printcost: number;
+    period_y_stockcost: number;
+    period_y_handlingcost: number;
   }[];
+};
+
+export type PrinttypegroupDetailsResponse = {
+  upload: {
+    id: number;
+    filename: string;
+    imported_at: string;
+  };
+  filters: {
+    date_from: string;
+    date_to: string;
+    table_kind: string;
+    printtypegroup: string;
+  };
+  summary: {
+    planos: number;
+    quantity: number;
+    printcost: number;
+    stockcost: number;
+    handlingcost: number;
+    rows: number;
+  };
+  size_chart: {
+    label: string;
+    value: number;
+  }[];
+  size_drilldown: Record<
+    string,
+    {
+      label: string;
+      quantity: number;
+      printcost: number;
+      stockcost: number;
+      handlingcost: number;
+      planos: number;
+      color: string;
+    }[]
+  >;
 };
 
 export type YearlyAveragesResponse = {

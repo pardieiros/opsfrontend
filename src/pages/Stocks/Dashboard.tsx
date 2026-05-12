@@ -6,6 +6,7 @@ import { Modal } from "../../components/ui/modal";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import MerchandiseDetailModal from "./components/MerchandiseDetailModal";
 import StockEntryModal from "./components/StockEntryModal";
 import StockSettingsModal from "./components/StockSettingsModal";
 // @ts-ignore: legacy JS service module
@@ -58,6 +59,13 @@ interface StockOrderLine extends Pick<
 > {
   boxes: number;
 }
+
+type SettingsModalTab =
+  | "families"
+  | "entry-fields"
+  | "certification-fields"
+  | "merchandise"
+  | "links";
 
 const numberFormatter = new Intl.NumberFormat("pt-PT");
 const MINIMUM_ORDER_BOXES = 96;
@@ -128,7 +136,12 @@ export default function StocksDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] =
+    useState<SettingsModalTab>("families");
   const [isEntryOpen, setIsEntryOpen] = useState(false);
+  const [selectedMerchandiseItem, setSelectedMerchandiseItem] =
+    useState<StockItem | null>(null);
+  const [isMerchandiseDetailOpen, setIsMerchandiseDetailOpen] = useState(false);
   const [orderCart, setOrderCart] = useState<StockOrderLine[]>([]);
   const [isOrderCartOpen, setIsOrderCartOpen] = useState(false);
   const [isOrderEmailOpen, setIsOrderEmailOpen] = useState(false);
@@ -234,6 +247,16 @@ export default function StocksDashboard() {
   const totalOrderBoxes = orderCart.reduce((sum, item) => sum + item.boxes, 0);
   const totalOrderPallets = totalOrderBoxes / BOXES_PER_PALLET;
   const canSubmitOrder = totalOrderBoxes >= MINIMUM_ORDER_BOXES;
+
+  const openSettingsModal = (tab: SettingsModalTab = "families") => {
+    setSettingsInitialTab(tab);
+    setIsSettingsOpen(true);
+  };
+
+  const openMerchandiseDetail = (item: StockItem) => {
+    setSelectedMerchandiseItem(item);
+    setIsMerchandiseDetailOpen(true);
+  };
 
   const addItemToOrderCart = (item: StockItem) => {
     setOrderCart((current) => {
@@ -433,7 +456,7 @@ export default function StocksDashboard() {
         <div className="flex items-center justify-end gap-3">
           <Button
             variant="outline"
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={() => openSettingsModal("families")}
             startIcon={
               <svg
                 className="h-5 w-5"
@@ -510,12 +533,32 @@ export default function StocksDashboard() {
               </select>
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Tipo
-                </p>
-                <p className="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">
-                  {selectedFamily?.product_type || "-"}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Tipo
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">
+                      {selectedFamily?.product_type || "-"}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => openSettingsModal("families")}
+                      disabled={!selectedFamilyId}
+                    >
+                      Editar Família
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => openSettingsModal("entry-fields")}
+                      disabled={!selectedFamilyId}
+                    >
+                      Campos Dinâmicos
+                    </Button>
+                  </div>
+                </div>
                 <p className="mt-3 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   Descrição
                 </p>
@@ -689,7 +732,11 @@ export default function StocksDashboard() {
                         : 0;
 
                     return (
-                      <tr key={item.id} className="align-top">
+                      <tr
+                        key={item.id}
+                        className="align-top transition hover:bg-blue-50/50 dark:hover:bg-white/[0.02] cursor-pointer"
+                        onClick={() => openMerchandiseDetail(item)}
+                      >
                         <td className="px-4 py-4">
                           <div className="font-medium text-gray-900 dark:text-white">
                             {item.size_label}
@@ -748,7 +795,10 @@ export default function StocksDashboard() {
                         <td className="px-4 py-4">
                           <button
                             type="button"
-                            onClick={() => addItemToOrderCart(item)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              addItemToOrderCart(item);
+                            }}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-600 transition hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
                             aria-label={`Adicionar ${item.reference} à encomenda`}
                           >
@@ -787,6 +837,8 @@ export default function StocksDashboard() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onDataChanged={refreshPageData}
+        initialFamilyId={selectedFamilyId}
+        initialTab={settingsInitialTab}
       />
 
       <StockEntryModal
@@ -795,6 +847,14 @@ export default function StocksDashboard() {
         families={families}
         defaultFamilyId={selectedFamilyId}
         onEntryCreated={refreshPageData}
+      />
+
+      <MerchandiseDetailModal
+        isOpen={isMerchandiseDetailOpen}
+        onClose={() => setIsMerchandiseDetailOpen(false)}
+        families={families}
+        item={selectedMerchandiseItem}
+        onChanged={refreshPageData}
       />
 
       {orderCart.length > 0 && (

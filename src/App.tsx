@@ -38,6 +38,9 @@ import TamanhosEditar from "./pages/Tamanhos/Editar";
 import Project3d from "./pages/Project3d/Project3d";
 import GestaoImpressao from "./pages/Impressao/Gestao";
 import StocksDashboard from "./pages/Stocks/Dashboard";
+import Imprimir360Encomendas from "./pages/Imprimir360/Encomendas";
+import Imprimir360Calendario from "./pages/Imprimir360/Calendario";
+import Imprimir360Picagens from "./pages/Imprimir360/Picagens";
 import AppLayout from "./layout/AppLayout";
 import Prepfich from "./pages/Digital/Prepfich";
 import Home from "./pages/Dashboard/Home";
@@ -157,6 +160,9 @@ export default function App() {
           <Route path="/tamanhos/consultar" element={<TamanhosConsultar />} />
           <Route path="/tamanhos/editar/:id" element={<TamanhosEditar />} />
           <Route path="/project3d" element={<Project3d />} />
+          <Route path="/360imprimir/encomendas" element={<Imprimir360Encomendas />} />
+          <Route path="/360imprimir/calendario" element={<Imprimir360Calendario />} />
+          <Route path="/360imprimir/picagens" element={<Imprimir360Picagens />} />
           <Route path="/stocks" element={<StocksDashboard />} />
 
           {/* Impressão Pages */}

@@ -69,6 +69,15 @@ const navItems: NavItem[] = [
     path: "/maquetes"
   },
   {
+    icon: <TableIcon />,
+    name: "360Imprimir",
+    subItems: [
+      { name: "Encomendas", path: "/360imprimir/encomendas" },
+      { name: "Calendário", path: "/360imprimir/calendario" },
+      { name: "Picagens", path: "/360imprimir/picagens" }
+    ]
+  },
+  {
     icon: <BoxCubeIcon />,
     name: "Stocks",
     path: "/stocks"
