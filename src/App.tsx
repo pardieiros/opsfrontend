@@ -54,6 +54,7 @@ import ClientEdit from "./pages/Clients/ClientEdit";
 import ClientNew from "./pages/Clients/ClientNew";
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import FaturacaoDashboardPage from "./pages/Faturacao/Dashboard";
+import PrintedOpsBilling from "./pages/Faturacao/PrintedOpsBilling";
 import { ServiceWorkerUpdate } from "./components/common/ServiceWorkerUpdate";
 
 
@@ -197,6 +198,7 @@ export default function App() {
           {/* Notifications Page */}
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/faturacao/dashboard" element={<FaturacaoDashboardPage />} />
+          <Route path="/faturacao/ops" element={<PrintedOpsBilling />} />
         </Route>
 
         {/* Public approval page */}

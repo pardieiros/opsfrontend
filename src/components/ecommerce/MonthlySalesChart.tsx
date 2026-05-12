@@ -1,8 +1,5 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { MoreDotIcon } from "../../icons";
 import { useState, useEffect } from "react";
 
 interface MonthlyOpsData {
@@ -11,6 +8,9 @@ interface MonthlyOpsData {
 }
 
 export default function MonthlySalesChart() {
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, index) => currentYear - index);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [monthlyData, setMonthlyData] = useState<MonthlyOpsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +19,7 @@ export default function MonthlySalesChart() {
     const fetchMonthlyOpsData = async () => {
       try {
         setLoading(true);
+        setError(null);
         const token = localStorage.getItem("accessToken");
         
         if (!token) {
@@ -26,7 +27,7 @@ export default function MonthlySalesChart() {
           return;
         }
 
-        const response = await fetch("/api/op/ordens-producao/monthly-ops-chart/", {
+        const response = await fetch(`/api/op/ordens-producao/monthly-ops-chart/?year=${selectedYear}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -48,7 +49,7 @@ export default function MonthlySalesChart() {
     };
 
     fetchMonthlyOpsData();
-  }, []);
+  }, [selectedYear]);
 
   const options: ApexOptions = {
     colors: ["#465fff"],
@@ -136,22 +137,12 @@ export default function MonthlySalesChart() {
     },
   ];
 
-  const [isOpen, setIsOpen] = useState(false);
-
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
-
-  function closeDropdown() {
-    setIsOpen(false);
-  }
-
   if (loading) {
     return (
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            OPs Mensais
+            OPs Mensais {selectedYear}
           </h3>
         </div>
         <div className="flex items-center justify-center h-[180px]">
@@ -169,8 +160,19 @@ export default function MonthlySalesChart() {
       <div className="overflow-hidden rounded-2xl border border-red-200 bg-red-50 px-5 pt-5 dark:border-red-800 dark:bg-red-900/20 sm:px-6 sm:pt-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">
-            OPs Mensais
+            OPs Mensais {selectedYear}
           </h3>
+          <select
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-medium text-red-700 shadow-sm outline-none transition-colors focus:border-red-400 focus:ring-2 focus:ring-red-100 dark:border-red-800 dark:bg-gray-900 dark:text-red-200 dark:focus:ring-red-900/30"
+          >
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex items-center justify-center h-[180px]">
           <p className="text-sm text-red-600 dark:text-red-400">
@@ -185,31 +187,19 @@ export default function MonthlySalesChart() {
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-          OPs Mensais {monthlyData.current_year}
+          OPs Mensais {selectedYear}
         </h3>
-        <div className="relative inline-block">
-          <button className="dropdown-toggle" onClick={toggleDropdown}>
-            <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 size-6" />
-          </button>
-          <Dropdown
-            isOpen={isOpen}
-            onClose={closeDropdown}
-            className="w-40 p-2"
-          >
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Ver Mais
-            </DropdownItem>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              Eliminar
-            </DropdownItem>
-          </Dropdown>
-        </div>
+        <select
+          value={selectedYear}
+          onChange={(event) => setSelectedYear(Number(event.target.value))}
+          className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm outline-none transition-colors focus:border-brand-300 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+        >
+          {yearOptions.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="max-w-full overflow-x-auto custom-scrollbar">

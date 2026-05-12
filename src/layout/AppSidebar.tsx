@@ -140,6 +140,14 @@ const navItems: NavItem[] = [
     path: "/clients"
   },
   {
+    icon: <TableIcon />,
+    name: "Faturacao",
+    subItems: [
+      { name: "OPs", path: "/faturacao/ops" },
+      { name: "Dashboard", path: "/faturacao/dashboard" }
+    ]
+  },
+  {
     icon: <PageIcon />,
     name: "Artigos PHC",
     path: "/artigos-phc"

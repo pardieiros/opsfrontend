@@ -9,6 +9,8 @@ interface FilterModalProps {
   setFilterStatus: (s: string) => void;
   filterTipoImpressao: string;
   setFilterTipoImpressao: (s: string) => void;
+  filterTamanho?: string;
+  setFilterTamanho?: (s: string) => void;
   filterClient: any;
   setFilterClient: (c: any) => void;
   statusOptions: string[];
@@ -23,6 +25,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
   setFilterStatus,
   filterTipoImpressao,
   setFilterTipoImpressao,
+  filterTamanho = "",
+  setFilterTamanho,
   filterClient,
   setFilterClient,
   statusOptions,
@@ -70,6 +74,18 @@ const FilterModal: React.FC<FilterModalProps> = ({
             {tiposImpressao.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
+        {setFilterTamanho && (
+          <div className="mb-4">
+            <label className="block mb-1">Tamanho</label>
+            <input
+              type="text"
+              value={filterTamanho}
+              onChange={e => setFilterTamanho(e.target.value)}
+              className="w-full border rounded px-2 py-1"
+              placeholder="Ex: 28x11x37"
+            />
+          </div>
+        )}
         <button
           className="w-full bg-blue-600 text-white py-2 rounded mt-4"
           onClick={onClose}

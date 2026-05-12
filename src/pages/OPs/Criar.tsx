@@ -35,6 +35,15 @@ interface ValorAtributo {
   valor: string | number | boolean;
 }
 
+function normalizeGramagemValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "";
+  const numeric = Number(String(value).replace(",", "."));
+  if (Number.isFinite(numeric)) {
+    return Number.isInteger(numeric) ? String(numeric) : String(numeric);
+  }
+  return String(value);
+}
+
 const Criar: React.FC = (): React.ReactElement => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -69,6 +78,7 @@ const Criar: React.FC = (): React.ReactElement => {
     setNomeTrabalho(orderToEdit.nome_trabalho);
     setQuantidade(orderToEdit.quantidade);
     setMargem(orderToEdit.margem || 0);
+    setMargemCustom(![0, 5, 10, 15, 20].includes(Number(orderToEdit.margem || 0)));
     setObsOP(orderToEdit.obs || "");
     setEmailEncomenda(orderToEdit.email_encomenda || "");
     setDataSaida(orderToEdit.data_expedicao ? orderToEdit.data_expedicao.split('T')[0] : "");
@@ -100,7 +110,7 @@ const Criar: React.FC = (): React.ReactElement => {
     
     // Prefill cor/gramagem
     if (orderToEdit.cor_gramagem_cor && orderToEdit.cor_gramagem_valor) {
-      setSelectedGramagem(`${orderToEdit.cor_gramagem_cor}-${orderToEdit.cor_gramagem_valor}`);
+      setSelectedGramagem(`${orderToEdit.cor_gramagem_cor}-${normalizeGramagemValue(orderToEdit.cor_gramagem_valor)}`);
     }
     
     // Prefill cordao/asa torcida if present
@@ -137,6 +147,27 @@ const Criar: React.FC = (): React.ReactElement => {
     
     if (orderToEdit.maquete_colors) {
       setMaqueteColors(orderToEdit.maquete_colors);
+    }
+    if (orderToEdit.cores_impressao) {
+      const colors = Array.isArray(orderToEdit.cores_impressao)
+        ? orderToEdit.cores_impressao
+        : String(orderToEdit.cores_impressao)
+            .split("|")
+            .map((color) => color.trim())
+            .filter(Boolean);
+      setMaqueteColors(colors.length ? colors : [""]);
+      if (colors.length) {
+        setIsMaqueteAttached(true);
+      }
+    }
+    if (Array.isArray(orderToEdit.caracteristicas)) {
+      const nextValores: { [key: number]: any } = {};
+      orderToEdit.caracteristicas.forEach((item: any) => {
+        if (item?.id != null) {
+          nextValores[Number(item.id)] = item.valor ?? "";
+        }
+      });
+      setValoresAtributos(nextValores);
     }
     
     if (orderToEdit.maquete_preview) {
@@ -192,6 +223,25 @@ const Criar: React.FC = (): React.ReactElement => {
   // Cor / Gramagem
   const [selectedGramagem, setSelectedGramagem] = useState<string>("");
 
+  useEffect(() => {
+    if (!orderToEdit || !selectedTamanho || !tamanhos.length) return;
+    if (!orderToEdit.cor_gramagem_cor || !orderToEdit.cor_gramagem_valor) return;
+
+    const tamanho = tamanhos.find(t => t.id === selectedTamanho);
+    const corAtual = String(orderToEdit.cor_gramagem_cor).toLowerCase();
+    const gramagemAtual = normalizeGramagemValue(orderToEdit.cor_gramagem_valor);
+    const matchingGramagem = tamanho?.gramagens.find(g => {
+      const sameColor =
+        String(g.cor).toLowerCase() === corAtual ||
+        String(g.cor_nome).toLowerCase() === corAtual;
+      return sameColor && normalizeGramagemValue(g.gramagem) === gramagemAtual;
+    });
+
+    if (matchingGramagem) {
+      setSelectedGramagem(`${matchingGramagem.cor}-${normalizeGramagemValue(matchingGramagem.gramagem)}`);
+    }
+  }, [orderToEdit, selectedTamanho, tamanhos]);
+
   // Tipos de impressão
   const [printTypes, setPrintTypes] = useState<{ id: number; nome: string; descricao: string }[]>([]);
   const [selectedPrintType, setSelectedPrintType] = useState<number | null>(null);
@@ -225,6 +275,7 @@ const Criar: React.FC = (): React.ReactElement => {
   });
   const [numeroFaces, setNumeroFaces] = useState<number>(1);
   const [margem, setMargem] = useState<number>(0);
+  const [margemCustom, setMargemCustom] = useState<boolean>(false);
   
   // Estado para verificar se tamanho está em uso
   const [tamanhoEmUso, setTamanhoEmUso] = useState<{
@@ -310,7 +361,7 @@ const Criar: React.FC = (): React.ReactElement => {
         filtered.forEach(at => {
           valoresIniciais[at.id] = '';
         });
-        setValoresAtributos(valoresIniciais);
+        setValoresAtributos(prev => ({ ...valoresIniciais, ...prev }));
       } catch (err: any) {
         console.error('Erro ao carregar atributos:', err);
         setAtributosTipoSaco([]);
@@ -808,9 +859,14 @@ const Criar: React.FC = (): React.ReactElement => {
     e.preventDefault();
     setIsSubmitting(true);
     setAlertConfig(null);
-    // Extrai cor e valor de gramagem selecionados
-    const [corSelecionada, valorGram] = selectedGramagem.split('-');
-    const gramagemNumber = valorGram ? parseFloat(valorGram) : undefined;
+    // Extrai cor e valor de gramagem selecionados, preservando os valores antigos em edicao.
+    const [selectedCor, valorGram] = selectedGramagem ? selectedGramagem.split('-') : ["", ""];
+    const corSelecionada = selectedCor || orderToEdit?.cor_gramagem_cor || "";
+    const gramagemNumber = valorGram
+      ? parseFloat(valorGram)
+      : orderToEdit?.cor_gramagem_valor != null
+        ? parseFloat(String(orderToEdit.cor_gramagem_valor))
+        : undefined;
     // Preparar valores dos atributos para envio
     const valoresAtributosParaEnvio = Object.entries(valoresAtributos)
       .filter(([_, valor]) => valor !== '' && valor !== null && valor !== undefined)
@@ -855,6 +911,7 @@ const Criar: React.FC = (): React.ReactElement => {
       attached_email_id: emailAttached ? selectedEmail : undefined,
       // Valores dos atributos customizados
       atributos_valores: valoresAtributosParaEnvio,
+      maquete_colors: maqueteColors.filter(color => color.trim()),
       // Template de etiqueta do cliente
       label_template: selectedLabelTemplate || undefined,
     };
@@ -928,6 +985,7 @@ const Criar: React.FC = (): React.ReactElement => {
             tipo_saco_plastico: payload.tipo_saco_plastico,
             cor_asa_flexivel: payload.cor_asa_flexivel,
             atributos_valores: payload.atributos_valores,
+            maquete_colors: payload.maquete_colors,
             maquete_crop: croppedImageBlob
               ? new File(
                   [croppedImageBlob as Blob],
@@ -1009,6 +1067,7 @@ const Criar: React.FC = (): React.ReactElement => {
             tipo_saco_plastico: payload.tipo_saco_plastico,
             cor_asa_flexivel: payload.cor_asa_flexivel,
             atributos_valores: payload.atributos_valores,
+            maquete_colors: payload.maquete_colors,
             maquete_crop: croppedImageBlob
               ? new File(
                   [croppedImageBlob as Blob],
@@ -1037,6 +1096,7 @@ const Criar: React.FC = (): React.ReactElement => {
       setEmailEncomenda("");
       setQuantidade(1);
       setMargem(0);
+      setMargemCustom(false);
       setObsOP("");
       setCordaoCor("");
       setCordaoCorCustom("");
@@ -1384,28 +1444,30 @@ const Criar: React.FC = (): React.ReactElement => {
             </div>
           </div>
         )}
-        {croppedImageBlob && (
+        {(croppedImageBlob || isMaqueteAttached) && (
           <>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+            {croppedImageBlob && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{maqueteFile?.name}</p>
+                    <p className="text-xs text-gray-500">Maquete carregada com sucesso</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{maqueteFile?.name}</p>
-                  <p className="text-xs text-gray-500">Maquete carregada com sucesso</p>
+                <div className="w-32 h-32 overflow-hidden rounded-lg border-2 border-gray-200 bg-white">
+                  <img
+                    src={URL.createObjectURL(croppedImageBlob)}
+                    alt="Preview Maquete"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
-              <div className="w-32 h-32 overflow-hidden rounded-lg border-2 border-gray-200 bg-white">
-                <img
-                  src={URL.createObjectURL(croppedImageBlob)}
-                  alt="Preview Maquete"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            </div>
+            )}
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-3">Cores de Impressão</h4>
               <div className="space-y-3">
@@ -1505,8 +1567,15 @@ const Criar: React.FC = (): React.ReactElement => {
           <div>
             <label className="block mb-1">Margem (%)</label>
             <select
-              value={margem}
-              onChange={e => setMargem(Number(e.target.value))}
+              value={margemCustom ? "outro" : String(margem)}
+              onChange={e => {
+                if (e.target.value === "outro") {
+                  setMargemCustom(true);
+                  return;
+                }
+                setMargemCustom(false);
+                setMargem(Number(e.target.value));
+              }}
               className="w-full border rounded px-3 py-2"
             >
               <option value={0}>0%</option>
@@ -1514,7 +1583,19 @@ const Criar: React.FC = (): React.ReactElement => {
               <option value={10}>10%</option>
               <option value={15}>15%</option>
               <option value={20}>20%</option>
+              <option value="outro">Outro</option>
             </select>
+            {margemCustom && (
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={margem}
+                onChange={e => setMargem(Number(e.target.value) || 0)}
+                className="mt-2 w-full border rounded px-3 py-2"
+                placeholder="Margem personalizada"
+              />
+            )}
           </div>
         </div>
         {selectedTipoSaco === 5 && (

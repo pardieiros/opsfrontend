@@ -43,6 +43,27 @@ interface Ordem extends OrdemCardProps {
   };
 }
 
+const formatDim = (val?: string | number | null): string => {
+  if (val === null || val === undefined || val === "") return "";
+  const strVal = String(val);
+  return strVal.endsWith(".00") ? String(parseInt(strVal, 10)) : strVal;
+};
+
+const formatTamanho = (tamanhoDetail?: OrdemCardProps["tamanho_detail"]): string => {
+  if (!tamanhoDetail) return "";
+  const largura = formatDim(tamanhoDetail.largura);
+  const fole = formatDim(tamanhoDetail.fole);
+  const altura = formatDim(tamanhoDetail.altura);
+
+  if (fole && parseFloat(fole) > 0) {
+    return `${largura}×${fole}×${altura}`;
+  }
+  return `${largura}×${altura}`;
+};
+
+const normalizeTamanhoFilter = (value: string): string =>
+  value.toLowerCase().replace(/[×x\s.,-]/g, "");
+
 export default function ConsultarOPs() {
   const navigate = useNavigate();
   const [ordens, setOrdens] = useState<Ordem[]>([]);
@@ -53,6 +74,7 @@ export default function ConsultarOPs() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTipoImpressao, setFilterTipoImpressao] = useState<string>("");
+  const [filterTamanho, setFilterTamanho] = useState<string>("");
   const [filterClient, setFilterClient] = useState<any>(null);
   const [sortOrder, setSortOrder] = useState<"name" | "date" | null>(null);
 
@@ -121,6 +143,13 @@ export default function ConsultarOPs() {
       );
     }
 
+    if (filterTamanho.trim()) {
+      const normalizedFilter = normalizeTamanhoFilter(filterTamanho);
+      filtered = filtered.filter(op =>
+        normalizeTamanhoFilter(formatTamanho(op.tamanho_detail)).includes(normalizedFilter)
+      );
+    }
+
     // Aplicar filtro de cliente
     if (filterClient) {
       filtered = filtered.filter(op => op.cliente_nome2 === filterClient.nome2);
@@ -140,7 +169,7 @@ export default function ConsultarOPs() {
     }
 
     return filtered;
-  }, [ordens, searchTerm, filterStatus, filterTipoImpressao, filterClient, sortOrder]);
+  }, [ordens, searchTerm, filterStatus, filterTipoImpressao, filterTamanho, filterClient, sortOrder]);
 
   // Agrupa ordens por status, usando fallback quando undefined
   const groupedOrdens = useMemo(() => {
@@ -289,7 +318,7 @@ export default function ConsultarOPs() {
           </div>
 
           {/* Indicadores de Filtros Ativos */}
-          {(filterStatus || filterTipoImpressao || filterClient || searchTerm) && (
+          {(filterStatus || filterTipoImpressao || filterTamanho || filterClient || searchTerm) && (
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex flex-wrap gap-2">
                 {searchTerm && (
@@ -328,6 +357,18 @@ export default function ConsultarOPs() {
                     </button>
                   </span>
                 )}
+                {filterTamanho && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-300">
+                    Tamanho: {filterTamanho}
+                    <button
+                      type="button"
+                      onClick={() => setFilterTamanho("")}
+                      className="ml-1 text-cyan-600 hover:text-cyan-800"
+                    >
+                      Ã—
+                    </button>
+                  </span>
+                )}
                 {filterClient && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300">
                     Cliente: {filterClient.nome2}
@@ -346,6 +387,7 @@ export default function ConsultarOPs() {
                     setSearchTerm("");
                     setFilterStatus("");
                     setFilterTipoImpressao("");
+                    setFilterTamanho("");
                     setFilterClient(null);
                     setSortOrder(null);
                   }}
@@ -485,6 +527,8 @@ export default function ConsultarOPs() {
         setFilterStatus={setFilterStatus}
         filterTipoImpressao={filterTipoImpressao}
         setFilterTipoImpressao={setFilterTipoImpressao}
+        filterTamanho={filterTamanho}
+        setFilterTamanho={setFilterTamanho}
         filterClient={filterClient}
         setFilterClient={setFilterClient}
         statusOptions={statusOrder}

@@ -1922,6 +1922,23 @@ export async function fetchClients() {
   return response.json();
 }
 
+export async function fetchFaturacaoClients(params = {}) {
+  const search = new URLSearchParams();
+  if (params.page) search.set("page", String(params.page));
+  if (params.pageSize) search.set("page_size", String(params.pageSize));
+  if (params.search) search.set("search", params.search);
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/clients/${suffix}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || 'Erro ao carregar clientes');
+  }
+  return response.json();
+}
+
 export async function fetchStockFamilies() {
   const response = await fetchWithAuth(
     `${API_BASE}/family/`,
@@ -2411,6 +2428,55 @@ export async function fetchClientOrders(clientId) {
     throw new Error(errText || `Erro ao carregar ordens do cliente ${clientId}`);
   }
   return response.json();
+}
+
+export async function fetchFaturacaoClientOps(clientId, params = {}) {
+  const search = new URLSearchParams();
+  if (params.page) search.set("page", String(params.page));
+  if (params.pageSize) search.set("page_size", String(params.pageSize));
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/clients/${clientId}/ops/${suffix}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || `Erro ao carregar ordens do cliente ${clientId}`);
+  }
+  return response.json();
+}
+
+export async function downloadFaturacaoPrintedOpsExcel(opIds, clientName = "cliente") {
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/printed-ops/excel/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ op_ids: opIds }),
+    }
+  );
+  if (!response.ok) {
+    let message = "Erro ao gerar Excel de faturacao";
+    try {
+      const data = await response.json();
+      message = data.error || data.detail || message;
+    } catch (_error) {
+      const errText = await response.text();
+      message = errText || message;
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const safeClientName = String(clientName || "cliente").replace(/[^a-z0-9_-]+/gi, "_");
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `faturacao_ops_${safeClientName}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(downloadUrl);
+  return blob;
 }
 
 // ===== GESTÃO DE IMPRESSÃO =====

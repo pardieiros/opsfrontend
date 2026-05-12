@@ -22,11 +22,26 @@ const fetchPaletesByOP = async (opId: number) => {
 };
 
 // Remove trailing ".00" from numeric strings
-const formatNumber = (value: string | number | undefined) => {
+const formatNumber = (value: string | number | null | undefined) => {
   if (value === undefined || value === null) return "";
   const s = String(value);
   return s.endsWith('.00') ? s.slice(0, -3) : s;
 };
+
+const formatTamanho = (tamanhoDetail?: any): string => {
+  if (!tamanhoDetail) return "";
+  const largura = formatNumber(tamanhoDetail.largura);
+  const fole = formatNumber(tamanhoDetail.fole);
+  const altura = formatNumber(tamanhoDetail.altura);
+
+  if (fole && parseFloat(fole) > 0) {
+    return `${largura}×${fole}×${altura}`;
+  }
+  return `${largura}×${altura}`;
+};
+
+const normalizeTamanhoFilter = (value: string): string =>
+  value.toLowerCase().replace(/[×x\s.,-]/g, "");
 
 // Status disponíveis para alteração
 const statusOptions = [
@@ -66,6 +81,7 @@ const Gerir: React.FC = () => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTipoImpressao, setFilterTipoImpressao] = useState<string>("");
+  const [filterTamanho, setFilterTamanho] = useState<string>("");
   const [filterClient, setFilterClient] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
@@ -83,7 +99,7 @@ const Gerir: React.FC = () => {
         const filtros: any = {};
         
         // Se há filtros da modal ativos, usam-se esses
-        if (filterStatus || filterTipoImpressao || filterClient) {
+        if (filterStatus || filterTipoImpressao || filterTamanho || filterClient) {
           if (filterStatus) filtros.status = filterStatus;
           if (filterTipoImpressao) filtros.tipo_impressao = filterTipoImpressao;
           if (filterClient) filtros.cliente = filterClient.id;
@@ -99,11 +115,18 @@ const Gerir: React.FC = () => {
         const all = await fetchAllOrdensProducaoOptimized(filtros);
         console.log("📋 Todas as OPs carregadas (otimizado):", all);
         console.log("📋 Primeira OP como exemplo:", all[0] ? JSON.stringify(all[0], null, 2) : "Nenhuma OP encontrada");
-        setOrdens(all);
+        const filteredByTamanho = filterTamanho.trim()
+          ? all.filter((op: any) =>
+              normalizeTamanhoFilter(formatTamanho(op.tamanho_detail)).includes(
+                normalizeTamanhoFilter(filterTamanho)
+              )
+            )
+          : all;
+        setOrdens(filteredByTamanho);
 
         // Verificar se veio da página Consultar com uma OP específica selecionada
         if ((location.state?.fromConsultar || location.state?.fromClientDetail || location.state?.fromSearch) && location.state?.selectedOpId) {
-          const opToSelect = all.find(op => op.id === location.state.selectedOpId);
+          const opToSelect = filteredByTamanho.find((op: any) => op.id === location.state.selectedOpId);
           if (opToSelect) {
             console.log("🎯 Selecionando OP automaticamente:", opToSelect);
             console.log("🎯 Origem:", location.state.fromConsultar ? "Consultar" : location.state.fromClientDetail ? "ClientDetail" : "Search");
@@ -117,7 +140,7 @@ const Gerir: React.FC = () => {
       }
     }
     loadOrdens();
-  }, [showFinalizados, filterStatus, filterTipoImpressao, filterClient, location.state]);
+  }, [showFinalizados, filterStatus, filterTipoImpressao, filterTamanho, filterClient, location.state]);
 
   // useEffect separado para carregar mockup quando selected muda
   useEffect(() => {
@@ -376,6 +399,8 @@ const Gerir: React.FC = () => {
         setFilterStatus={setFilterStatus}
         filterTipoImpressao={filterTipoImpressao}
         setFilterTipoImpressao={setFilterTipoImpressao}
+        filterTamanho={filterTamanho}
+        setFilterTamanho={setFilterTamanho}
         filterClient={filterClient}
         setFilterClient={setFilterClient}
         statusOptions={statusOptions}
