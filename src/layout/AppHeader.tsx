@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchOrdensProducao } from "../serviceapi/api";
 import { useSidebar } from "../context/SidebarContext";
@@ -34,6 +34,15 @@ const AppHeader: React.FC = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const navigate = useNavigate();
 
+  const selectSuggestion = useCallback((op: any) => {
+    if (!op?.id) return;
+
+    console.log('🔍 Selecionando OP da pesquisa:', op.id, op.nome_trabalho);
+    setSuggestions([]);
+    setSearchTerm('');
+    navigate(`/ops/gerir?op=${encodeURIComponent(String(op.id))}`);
+  }, [navigate]);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
@@ -45,15 +54,7 @@ const AppHeader: React.FC = () => {
       if (event.key === "Enter" && suggestions.length > 0 && document.activeElement === inputRef.current) {
         event.preventDefault();
         const firstSuggestion = suggestions[0];
-        console.log('🔍 Selecionando primeira OP da pesquisa com Enter:', firstSuggestion.id, firstSuggestion.nome_trabalho);
-        setSuggestions([]);
-        setSearchTerm('');
-        navigate('/ops/gerir', { 
-          state: { 
-            selectedOpId: firstSuggestion.id,
-            fromSearch: true 
-          } 
-        });
+        selectSuggestion(firstSuggestion);
       }
     };
 
@@ -62,7 +63,7 @@ const AppHeader: React.FC = () => {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [suggestions, navigate]);
+  }, [suggestions, selectSuggestion]);
 
   useEffect(() => {
     let active = true;
@@ -211,17 +212,7 @@ const AppHeader: React.FC = () => {
                     {suggestions.map((op, index) => (
                       <li key={op.id}>
                         <button
-                          onClick={() => {
-                            console.log('🔍 Selecionando OP da pesquisa:', op.id, op.nome_trabalho);
-                            setSuggestions([]);
-                            setSearchTerm('');
-                            navigate('/ops/gerir', { 
-                              state: { 
-                                selectedOpId: op.id,
-                                fromSearch: true 
-                              } 
-                            });
-                          }}
+                          onClick={() => selectSuggestion(op)}
                           className={`block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors ${
                             index === 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500' : ''
                           }`}

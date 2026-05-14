@@ -43,6 +43,11 @@ const formatTamanho = (tamanhoDetail?: any): string => {
 const normalizeTamanhoFilter = (value: string): string =>
   value.toLowerCase().replace(/[×x\s.,-]/g, "");
 
+const parseOpId = (value: unknown): number | null => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
 // Status disponíveis para alteração
 const statusOptions = [
   "Aguardando Maquete",
@@ -73,6 +78,7 @@ const Gerir: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const navigate = useNavigate();
   const location = useLocation();
+  const selectedOpIdFromQuery = parseOpId(new URLSearchParams(location.search).get("op"));
 
   const [cordaoExpanded, setCordaoExpanded] = useState<boolean>(false);
 
@@ -197,6 +203,13 @@ const Gerir: React.FC = () => {
       setLoadingPaletes(false);
     }
   };
+
+  useEffect(() => {
+    if (!selectedOpIdFromQuery || selected?.id === selectedOpIdFromQuery) return;
+
+    const opToSelect = ordens.find((op: any) => Number(op.id) === selectedOpIdFromQuery);
+    handleSelect(opToSelect ?? { id: selectedOpIdFromQuery });
+  }, [selectedOpIdFromQuery, ordens, selected?.id]);
 
   const loadMockupPdf = async (opId: number) => {
     setMockupLoading(true);
