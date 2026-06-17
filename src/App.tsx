@@ -56,6 +56,7 @@ import ClientNew from "./pages/Clients/ClientNew";
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import FaturacaoDashboardPage from "./pages/Faturacao/Dashboard";
 import PrintedOpsBilling from "./pages/Faturacao/PrintedOpsBilling";
+import CurrentAccountDebtorsPage from "./pages/Faturacao/CurrentAccountDebtors";
 import { ServiceWorkerUpdate } from "./components/common/ServiceWorkerUpdate";
 
 
@@ -202,6 +203,7 @@ export default function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/faturacao/dashboard" element={<FaturacaoDashboardPage />} />
           <Route path="/faturacao/ops" element={<PrintedOpsBilling />} />
+          <Route path="/faturacao/conta-corrente" element={<CurrentAccountDebtorsPage />} />
         </Route>
 
         {/* Public approval page */}

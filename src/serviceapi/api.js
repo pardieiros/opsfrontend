@@ -1939,6 +1939,94 @@ export async function fetchFaturacaoClients(params = {}) {
   return response.json();
 }
 
+export async function fetchCurrentAccountTopDebtors(params = {}) {
+  const search = new URLSearchParams();
+  if (params.page) search.set("page", String(params.page));
+  if (params.pageSize) search.set("page_size", String(params.pageSize));
+  if (params.search) search.set("search", params.search);
+  if (params.overdueStatus) search.set("overdue_status", params.overdueStatus);
+  if (params.recipientStatus) search.set("recipient_status", params.recipientStatus);
+  if (params.sentStatus) search.set("sent_status", params.sentStatus);
+  if (params.sortBy) search.set("sort_by", params.sortBy);
+  if (params.sortDir) search.set("sort_dir", params.sortDir);
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/current-account/top-debtors/${suffix}`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar clientes com conta corrente.");
+  }
+  return response.json();
+}
+
+export async function fetchCurrentAccountClientDetail(phcNo, phcEstab) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/current-account/clients/${encodeURIComponent(phcNo)}/${encodeURIComponent(phcEstab)}/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao carregar o detalhe da conta corrente.");
+  }
+  return response.json();
+}
+
+export async function exportCurrentAccountClientExcel(phcNo, phcEstab) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/current-account/clients/${encodeURIComponent(phcNo)}/${encodeURIComponent(phcEstab)}/excel/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao exportar Excel da conta corrente.");
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || response.headers.get("content-disposition") || "";
+  const match = disposition.match(/filename=\"?([^"]+)\"?/i);
+  return {
+    blob,
+    filename: match?.[1] || `conta_corrente_${phcNo}_${phcEstab}.xlsx`,
+  };
+}
+
+export async function searchCurrentAccountCombinations(phcNo, phcEstab, payload = {}) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/current-account/clients/${encodeURIComponent(phcNo)}/${encodeURIComponent(phcEstab)}/search-combinations/`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao procurar combinacoes.");
+  }
+  return response.json();
+}
+
+export async function sendCurrentAccountEmails(clients = []) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/faturacao/current-account/send-emails/`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ clients }),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao enviar emails de conta corrente.");
+  }
+  return response.json();
+}
+
 export async function fetchStockFamilies() {
   const response = await fetchWithAuth(
     `${API_BASE}/family/`,
