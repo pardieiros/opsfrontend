@@ -1965,6 +1965,25 @@ export async function fetchFamilyStockDashboard(familyId) {
   return response.json();
 }
 
+export async function fetchPublicStockReport(token) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/stocks/public-report/${encodeURIComponent(token)}/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    let message = "Erro ao carregar relatório público de stock";
+    try {
+      const data = await response.json();
+      message = data.detail || data.error || message;
+    } catch (_error) {
+      const errText = await response.text();
+      message = errText || message;
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
 export async function fetchFamilyDynamicFields(familyId, scope) {
   const search = new URLSearchParams();
   if (scope) {
@@ -2249,11 +2268,95 @@ export async function sendStockOrderEmail(payload) {
   return response.json();
 }
 
+export async function downloadStockProductListing(payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/stocks/product-listing/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao gerar listagem de produtos");
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+  const filename =
+    filenameMatch?.[1] ||
+    `listagem_produtos_stock.${payload?.format === "pdf" ? "pdf" : "xlsx"}`;
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Busca detalhes de um cliente específico.
  * @param {number} clientId - ID do cliente
  * @returns {Promise<Object>} Dados do cliente
  */
+export async function startStockConsumptionReport(payload) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/stocks/consumption-report/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload || {}),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao iniciar relatorio de consumos");
+  }
+  return response.json();
+}
+
+export async function fetchStockConsumptionReportStatus(taskId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/stocks/consumption-report/${encodeURIComponent(taskId)}/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao consultar progresso do relatorio");
+  }
+  return response.json();
+}
+
+export async function downloadStockConsumptionReportExport(taskId, format) {
+  const normalizedFormat = format === "pdf" ? "pdf" : "xlsx";
+  const response = await fetchWithAuth(
+    `${API_BASE}/stocks/consumption-report/${encodeURIComponent(taskId)}/export/${normalizedFormat}/`,
+    { method: "GET" }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Erro ao exportar relatorio de consumos");
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+  const filename =
+    filenameMatch?.[1] || `consumos_stock.${normalizedFormat === "pdf" ? "pdf" : "xlsx"}`;
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchClientDetail(clientId) {
   const response = await fetchWithAuth(
     `${API_BASE}/clients/${clientId}/`,

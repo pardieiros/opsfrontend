@@ -38,6 +38,7 @@ import TamanhosEditar from "./pages/Tamanhos/Editar";
 import Project3d from "./pages/Project3d/Project3d";
 import GestaoImpressao from "./pages/Impressao/Gestao";
 import StocksDashboard from "./pages/Stocks/Dashboard";
+import PublicStockLink from "./pages/Stocks/PublicStockLink";
 import Imprimir360Encomendas from "./pages/Imprimir360/Encomendas";
 import Imprimir360Calendario from "./pages/Imprimir360/Calendario";
 import Imprimir360Picagens from "./pages/Imprimir360/Picagens";
@@ -114,8 +115,10 @@ export default function App() {
         })
         .then(data => {
           localStorage.setItem("accessToken", data.access);
-          // After refreshing token, navigate back to current path or home
-          navigate(window.location.pathname || "/", { replace: true });
+          // After refreshing token, navigate back to current path without losing query params.
+          navigate(`${window.location.pathname || "/"}${window.location.search || ""}`, {
+            replace: true,
+          });
         })
         .catch(() => {
           localStorage.removeItem("refreshToken");
@@ -203,6 +206,7 @@ export default function App() {
 
         {/* Public approval page */}
         <Route path="/maquetes/:id/approve" element={<Aprovedmaquete />} />
+        <Route path="/stockslink" element={<PublicStockLink />} />
 
         {/* Auth Layout */}
         <Route path="/signin" element={<SignIn />} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Chart from "react-apexcharts";
 import type { ApexOptions } from "apexcharts";
 import Button from "../../components/ui/button/Button";
@@ -11,9 +11,13 @@ import StockEntryModal from "./components/StockEntryModal";
 import StockSettingsModal from "./components/StockSettingsModal";
 // @ts-ignore: legacy JS service module
 import {
+  downloadStockProductListing,
+  downloadStockConsumptionReportExport,
   fetchFamilyStockDashboard,
+  fetchStockConsumptionReportStatus,
   fetchStockFamilies,
   sendStockOrderEmail,
+  startStockConsumptionReport,
 } from "../../serviceapi/api";
 
 interface StockFamily {
@@ -58,6 +62,41 @@ interface StockOrderLine extends Pick<
   "id" | "size_label" | "name" | "reference" | "category"
 > {
   boxes: number;
+}
+
+interface StockConsumptionClientRow {
+  client_id: number;
+  client_name: string;
+  quantity: number;
+  movement_count: number;
+  last_movement: string;
+}
+
+interface StockConsumptionReport {
+  filters: {
+    family_id: number;
+    family_name: string;
+    merchandise_id: number | null;
+    merchandise_label: string;
+    date_from: string;
+    date_to: string;
+  };
+  summary: {
+    total_quantity: number;
+    movement_count: number;
+    client_count: number;
+    article_count: number;
+  };
+  top_clients: StockConsumptionClientRow[];
+}
+
+interface StockConsumptionTaskState {
+  taskId: string;
+  status: string;
+  progress: number;
+  message: string;
+  result: StockConsumptionReport | null;
+  error: string | null;
 }
 
 type SettingsModalTab =
@@ -126,6 +165,10 @@ function formatChartLabel(item: StockItem) {
   return `${item.size_label} | ${formatChartCategory(item.category)}`;
 }
 
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export default function StocksDashboard() {
   const [families, setFamilies] = useState<StockFamily[]>([]);
   const [selectedFamilyId, setSelectedFamilyId] = useState("");
@@ -147,6 +190,26 @@ export default function StocksDashboard() {
   const [isOrderEmailOpen, setIsOrderEmailOpen] = useState(false);
   const [orderEmail, setOrderEmail] = useState(DEFAULT_ORDER_EMAIL);
   const [isSendingOrder, setIsSendingOrder] = useState(false);
+  const [isProductListingOpen, setIsProductListingOpen] = useState(false);
+  const [productListingFamilyIds, setProductListingFamilyIds] = useState<string[]>([]);
+  const [isGeneratingProductListing, setIsGeneratingProductListing] = useState(false);
+  const [isConsumptionOpen, setIsConsumptionOpen] = useState(false);
+  const [isConsumptionResultOpen, setIsConsumptionResultOpen] = useState(false);
+  const [consumptionFamilyId, setConsumptionFamilyId] = useState("");
+  const [consumptionMerchandiseId, setConsumptionMerchandiseId] = useState("");
+  const [consumptionItems, setConsumptionItems] = useState<StockItem[]>([]);
+  const [consumptionItemsLoading, setConsumptionItemsLoading] = useState(false);
+  const [consumptionDateFrom, setConsumptionDateFrom] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return toDateInputValue(date);
+  });
+  const [consumptionDateTo, setConsumptionDateTo] = useState(() =>
+    toDateInputValue(new Date()),
+  );
+  const [consumptionTask, setConsumptionTask] =
+    useState<StockConsumptionTaskState | null>(null);
+  const consumptionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [orderFeedback, setOrderFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -157,10 +220,24 @@ export default function StocksDashboard() {
       setFamiliesLoading(true);
       const data = await fetchStockFamilies();
       setFamilies(data);
+      setProductListingFamilyIds((currentValue) => {
+        const validIds = new Set(data.map((family: StockFamily) => String(family.id)));
+        const keptIds = currentValue.filter((familyId) => validIds.has(familyId));
+        return keptIds.length > 0
+          ? keptIds
+          : data.map((family: StockFamily) => String(family.id));
+      });
       setError(null);
 
       if (data.length > 0) {
         setSelectedFamilyId((currentValue) => {
+          const hasCurrentFamily = data.some(
+            (family) => String(family.id) === currentValue,
+          );
+          if (hasCurrentFamily) return currentValue;
+          return String(data[0].id);
+        });
+        setConsumptionFamilyId((currentValue) => {
           const hasCurrentFamily = data.some(
             (family) => String(family.id) === currentValue,
           );
@@ -211,6 +288,55 @@ export default function StocksDashboard() {
     loadDashboard(selectedFamilyId);
   }, [selectedFamilyId]);
 
+  useEffect(() => {
+    if (!consumptionFamilyId) {
+      setConsumptionItems([]);
+      setConsumptionMerchandiseId("");
+      return;
+    }
+
+    let cancelled = false;
+    const loadConsumptionItems = async () => {
+      try {
+        setConsumptionItemsLoading(true);
+        const data = await fetchFamilyStockDashboard(consumptionFamilyId);
+        if (cancelled) return;
+        const items = data?.items || [];
+        setConsumptionItems(items);
+        setConsumptionMerchandiseId((currentValue) =>
+          items.some((item: StockItem) => String(item.id) === currentValue)
+            ? currentValue
+            : "",
+        );
+      } catch (err: any) {
+        if (!cancelled) {
+          setConsumptionItems([]);
+          setOrderFeedback({
+            type: "error",
+            message: err.message || "Erro ao carregar artigos para consumos.",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setConsumptionItemsLoading(false);
+        }
+      }
+    };
+
+    loadConsumptionItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [consumptionFamilyId]);
+
+  useEffect(() => {
+    return () => {
+      if (consumptionPollRef.current) {
+        clearInterval(consumptionPollRef.current);
+      }
+    };
+  }, []);
+
   const categoryOptions = Array.from(
     new Set((dashboard?.items ?? []).map((item) => formatChartCategory(item.category))),
   ).sort((left, right) => left.localeCompare(right, "pt-PT"));
@@ -244,6 +370,9 @@ export default function StocksDashboard() {
   const selectedFamily = families.find(
     (family) => String(family.id) === selectedFamilyId,
   );
+  const selectedConsumptionFamily = families.find(
+    (family) => String(family.id) === consumptionFamilyId,
+  );
   const totalOrderBoxes = orderCart.reduce((sum, item) => sum + item.boxes, 0);
   const totalOrderPallets = totalOrderBoxes / BOXES_PER_PALLET;
   const canSubmitOrder = totalOrderBoxes >= MINIMUM_ORDER_BOXES;
@@ -251,6 +380,170 @@ export default function StocksDashboard() {
   const openSettingsModal = (tab: SettingsModalTab = "families") => {
     setSettingsInitialTab(tab);
     setIsSettingsOpen(true);
+  };
+
+  const toggleProductListingFamily = (familyId: string) => {
+    setProductListingFamilyIds((currentValue) =>
+      currentValue.includes(familyId)
+        ? currentValue.filter((selectedId) => selectedId !== familyId)
+        : [...currentValue, familyId],
+    );
+  };
+
+  const setAllProductListingFamilies = (checked: boolean) => {
+    setProductListingFamilyIds(
+      checked ? families.map((family) => String(family.id)) : [],
+    );
+  };
+
+  const generateProductListing = async (format: "xlsx" | "pdf") => {
+    if (productListingFamilyIds.length === 0) {
+      setOrderFeedback({
+        type: "error",
+        message: "Seleciona pelo menos uma família para gerar a listagem.",
+      });
+      return;
+    }
+
+    try {
+      setIsGeneratingProductListing(true);
+      setOrderFeedback(null);
+      await downloadStockProductListing({
+        family_ids: productListingFamilyIds.map((familyId) => Number(familyId)),
+        format,
+      });
+      setIsProductListingOpen(false);
+      setOrderFeedback({
+        type: "success",
+        message: "Listagem de produtos gerada com sucesso.",
+      });
+    } catch (err: any) {
+      setOrderFeedback({
+        type: "error",
+        message: err.message || "Erro ao gerar listagem de produtos.",
+      });
+    } finally {
+      setIsGeneratingProductListing(false);
+    }
+  };
+
+  const stopConsumptionPolling = () => {
+    if (consumptionPollRef.current) {
+      clearInterval(consumptionPollRef.current);
+      consumptionPollRef.current = null;
+    }
+  };
+
+  const pollConsumptionReport = (taskId: string) => {
+    stopConsumptionPolling();
+    consumptionPollRef.current = setInterval(async () => {
+      try {
+        const data = await fetchStockConsumptionReportStatus(taskId);
+        setConsumptionTask((currentValue) => ({
+          taskId,
+          status: data.status || currentValue?.status || "PENDING",
+          progress: Number(data.progress ?? currentValue?.progress ?? 0),
+          message: data.message || currentValue?.message || "",
+          result: data.result || currentValue?.result || null,
+          error: data.error || null,
+        }));
+
+        if (data.status === "SUCCESS" || data.status === "FAILURE" || data.status === "REVOKED") {
+          stopConsumptionPolling();
+        }
+      } catch (err: any) {
+        stopConsumptionPolling();
+        setConsumptionTask((currentValue) => ({
+          taskId,
+          status: "FAILURE",
+          progress: currentValue?.progress || 0,
+          message: "",
+          result: currentValue?.result || null,
+          error: err.message || "Erro ao consultar progresso do relatorio.",
+        }));
+      }
+    }, 1500);
+  };
+
+  const generateConsumptionReport = async () => {
+    if (!consumptionFamilyId) {
+      setOrderFeedback({
+        type: "error",
+        message: "Seleciona uma familia para consultar consumos.",
+      });
+      return;
+    }
+    if (!consumptionDateFrom || !consumptionDateTo) {
+      setOrderFeedback({
+        type: "error",
+        message: "Seleciona o intervalo de datas para consultar consumos.",
+      });
+      return;
+    }
+    if (consumptionDateFrom > consumptionDateTo) {
+      setOrderFeedback({
+        type: "error",
+        message: "A data inicial nao pode ser posterior a data final.",
+      });
+      return;
+    }
+
+    try {
+      stopConsumptionPolling();
+      setOrderFeedback(null);
+      setIsConsumptionOpen(false);
+      setIsConsumptionResultOpen(true);
+      setConsumptionTask({
+        taskId: "",
+        status: "PENDING",
+        progress: 6,
+        message: "A enviar pedido.",
+        result: null,
+        error: null,
+      });
+      const task = await startStockConsumptionReport({
+        family_id: Number(consumptionFamilyId),
+        merchandise_id: consumptionMerchandiseId
+          ? Number(consumptionMerchandiseId)
+          : null,
+        date_from: consumptionDateFrom,
+        date_to: consumptionDateTo,
+      });
+      const taskId = task.task_id;
+      setConsumptionTask({
+        taskId,
+        status: task.status || "PENDING",
+        progress: Number(task.progress || 10),
+        message: "Relatorio em processamento.",
+        result: null,
+        error: null,
+      });
+      pollConsumptionReport(taskId);
+    } catch (err: any) {
+      stopConsumptionPolling();
+      setConsumptionTask({
+        taskId: "",
+        status: "FAILURE",
+        progress: 0,
+        message: "",
+        result: null,
+        error: err.message || "Erro ao iniciar relatorio de consumos.",
+      });
+    }
+  };
+
+  const exportConsumptionReport = async (format: "xlsx" | "pdf") => {
+    if (!consumptionTask?.taskId || consumptionTask.status !== "SUCCESS") {
+      return;
+    }
+    try {
+      await downloadStockConsumptionReportExport(consumptionTask.taskId, format);
+    } catch (err: any) {
+      setOrderFeedback({
+        type: "error",
+        message: err.message || "Erro ao exportar relatorio de consumos.",
+      });
+    }
   };
 
   const openMerchandiseDetail = (item: StockItem) => {
@@ -453,7 +746,7 @@ export default function StocksDashboard() {
       <PageBreadcrumb pageTitle="Stocks" />
 
       <div className="space-y-6">
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             variant="outline"
             onClick={() => openSettingsModal("families")}
@@ -481,6 +774,267 @@ export default function StocksDashboard() {
           >
             Definições
           </Button>
+          <div className="relative">
+            <Button
+              variant="outline"
+              onClick={() => setIsConsumptionOpen((isOpen) => !isOpen)}
+              startIcon={
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5 19V5M5 19H19"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M8 15.5L11 12.5L13.5 14L18 8.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              }
+            >
+              Consumos
+            </Button>
+
+            {isConsumptionOpen ? (
+              <div className="absolute right-0 z-30 mt-2 w-[min(92vw,460px)] rounded-lg border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Consumos por periodo
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Escolhe familia, artigo opcional e intervalo de datas.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsConsumptionOpen(false)}
+                    className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                    aria-label="Fechar"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M6 6L18 18M18 6L6 18"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Familia
+                  </label>
+                  <select
+                    value={consumptionFamilyId}
+                    onChange={(event) => setConsumptionFamilyId(event.target.value)}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  >
+                    {families.map((family) => (
+                      <option key={family.id} value={family.id}>
+                        {family.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Artigo
+                  </label>
+                  <select
+                    value={consumptionMerchandiseId}
+                    onChange={(event) =>
+                      setConsumptionMerchandiseId(event.target.value)
+                    }
+                    disabled={consumptionItemsLoading}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Toda a familia</option>
+                    {consumptionItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.reference} | {item.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        De
+                      </label>
+                      <input
+                        type="date"
+                        value={consumptionDateFrom}
+                        onChange={(event) =>
+                          setConsumptionDateFrom(event.target.value)
+                        }
+                        className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Ate
+                      </label>
+                      <input
+                        type="date"
+                        value={consumptionDateTo}
+                        onChange={(event) => setConsumptionDateTo(event.target.value)}
+                        className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {selectedConsumptionFamily?.name || "Sem familia selecionada"}
+                  </span>
+                  <Button onClick={generateConsumptionReport}>
+                    Gerar relatorio
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div className="relative">
+            <Button
+              variant="outline"
+              onClick={() => setIsProductListingOpen((isOpen) => !isOpen)}
+              startIcon={
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M6.75 4.75H17.25C18.3546 4.75 19.25 5.64543 19.25 6.75V17.25C19.25 18.3546 18.3546 19.25 17.25 19.25H6.75C5.64543 19.25 4.75 18.3546 4.75 17.25V6.75C4.75 5.64543 5.64543 4.75 6.75 4.75Z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M8 9H16M8 12H16M8 15H12"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              }
+            >
+              Listagem de Produtos
+            </Button>
+
+            {isProductListingOpen ? (
+              <div className="absolute right-0 z-30 mt-2 w-[min(92vw,420px)] rounded-lg border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Listagem de Produtos
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Seleciona as famÃ­lias para exportar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsProductListingOpen(false)}
+                    className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                    aria-label="Fechar"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M6 6L18 18M18 6L6 18"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    <input
+                      type="checkbox"
+                      checked={
+                        families.length > 0 &&
+                        productListingFamilyIds.length === families.length
+                      }
+                      onChange={(event) =>
+                        setAllProductListingFamilies(event.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                    />
+                    Todas as famÃ­lias
+                  </label>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {productListingFamilyIds.length}/{families.length}
+                  </span>
+                </div>
+
+                <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                  {families.map((family) => {
+                    const familyId = String(family.id);
+                    return (
+                      <label
+                        key={family.id}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-100 px-3 py-2 text-sm transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={productListingFamilyIds.includes(familyId)}
+                          onChange={() => toggleProductListingFamily(familyId)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium text-gray-800 dark:text-gray-100">
+                            {family.name}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                            {family.product_type || "Sem tipo"}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      isGeneratingProductListing ||
+                      productListingFamilyIds.length === 0
+                    }
+                    onClick={() => generateProductListing("pdf")}
+                  >
+                    PDF
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={
+                      isGeneratingProductListing ||
+                      productListingFamilyIds.length === 0
+                    }
+                    onClick={() => generateProductListing("xlsx")}
+                  >
+                    Excel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <Button
             onClick={() => setIsEntryOpen(true)}
             startIcon={
@@ -832,6 +1386,157 @@ export default function StocksDashboard() {
           )}
         </ComponentCard>
       </div>
+
+      <Modal
+        isOpen={isConsumptionResultOpen}
+        onClose={() => {
+          stopConsumptionPolling();
+          setIsConsumptionResultOpen(false);
+        }}
+        className="m-4 max-w-[860px]"
+      >
+        <div className="p-6 sm:p-8">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                Relatorio de Consumos
+              </h3>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                {consumptionTask?.result
+                  ? `${consumptionTask.result.filters.family_name} | ${
+                      consumptionTask.result.filters.merchandise_label ||
+                      "Toda a familia"
+                    }`
+                  : consumptionTask?.message || "A preparar relatorio."}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                disabled={consumptionTask?.status !== "SUCCESS"}
+                onClick={() => exportConsumptionReport("xlsx")}
+              >
+                Excel
+              </Button>
+              <Button
+                variant="outline"
+                disabled={consumptionTask?.status !== "SUCCESS"}
+                onClick={() => exportConsumptionReport("pdf")}
+              >
+                PDF
+              </Button>
+            </div>
+          </div>
+
+          {consumptionTask?.status !== "SUCCESS" ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/40">
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="font-medium text-gray-700 dark:text-gray-200">
+                  {consumptionTask?.error ||
+                    consumptionTask?.message ||
+                    "Relatorio em processamento."}
+                </span>
+                <span className="font-semibold text-blue-600 dark:text-blue-300">
+                  {Math.min(Math.max(consumptionTask?.progress || 0, 0), 100)}%
+                </span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+                <div
+                  className={`h-3 rounded-full transition-all duration-500 ${
+                    consumptionTask?.error ? "bg-red-500" : "bg-blue-600"
+                  }`}
+                  style={{
+                    width: `${Math.min(
+                      Math.max(consumptionTask?.progress || 0, 0),
+                      100,
+                    )}%`,
+                  }}
+                />
+              </div>
+              {consumptionTask?.error ? (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                  {consumptionTask.error}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {consumptionTask?.result ? (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Quantidade consumida
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {formatQuantity(consumptionTask.result.summary.total_quantity)}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Movimentos
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {formatQuantity(consumptionTask.result.summary.movement_count)}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Artigos analisados
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {formatQuantity(consumptionTask.result.summary.article_count)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-800">
+                <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Clientes que mais compraram
+                  </h4>
+                </div>
+                {consumptionTask.result.top_clients.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Sem clientes associados aos movimentos encontrados.
+                  </div>
+                ) : (
+                  <div className="max-h-[360px] overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                      <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
+                        <tr>
+                          <th className="px-4 py-3">Cliente</th>
+                          <th className="px-4 py-3 text-right">Quantidade</th>
+                          <th className="px-4 py-3 text-right">Movimentos</th>
+                          <th className="px-4 py-3">Ultimo movimento</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {consumptionTask.result.top_clients.map((client) => (
+                          <tr key={client.client_id}>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                              {client.client_name}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatQuantity(client.quantity)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">
+                              {formatQuantity(client.movement_count)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                              {client.last_movement || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </Modal>
 
       <StockSettingsModal
         isOpen={isSettingsOpen}
